@@ -190,6 +190,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 }
 
 // GetYandexCreds fetches TURN credentials from Yandex Telemost link.
+// Deprecated: Telemost has been shut down. Kept for reference only.
 func GetYandexCreds(link string, logf LogFunc) (string, string, string, error) {
 	const telemostConfHost = "cloud-api.yandex.ru"
 	telemostConfPath := fmt.Sprintf("/telemost_front/v2/telemost/conferences/https%%3A%%2F%%2Ftelemost.yandex.ru%%2Fj%%2F%s/connection?next_gen_media_platform_allowed=false", link)

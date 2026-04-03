@@ -57,7 +57,7 @@ func dtlsFunc(ctx context.Context, conn net.PacketConn, peer *net.UDPAddr) (net.
 }
 
 func oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listenConn net.PacketConn, connchan chan<- net.PacketConn, okchan chan<- struct{}, c chan<- error) {
-	var err error = nil
+	var err error
 	defer func() { c <- err }()
 	dtlsctx, dtlscancel := context.WithCancel(ctx)
 	defer dtlscancel()
@@ -84,16 +84,13 @@ func oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listenConn net.Pa
 		}
 		log.Printf("Closed DTLS connection\n")
 	}()
-	log.Printf("Established DTLS connection!\n")
-	go func() {
-		for {
-			select {
-			case <-dtlsctx.Done():
-				return
-			case okchan <- struct{}{}:
-			}
+	log.Printf("DTLS connection established")
+	if okchan != nil {
+		select {
+		case okchan <- struct{}{}:
+		default:
 		}
-	}()
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
@@ -189,7 +186,7 @@ type turnParams struct {
 }
 
 func oneTurnConnection(ctx context.Context, turnParams *turnParams, peer *net.UDPAddr, conn2 net.PacketConn, c chan<- error) {
-	var err error = nil
+	var err error
 	defer func() { c <- err }()
 	user, pass, url, err1 := turnParams.getCreds(turnParams.link)
 	if err1 != nil {
@@ -207,16 +204,14 @@ func oneTurnConnection(ctx context.Context, turnParams *turnParams, peer *net.UD
 	if turnParams.port != "" {
 		urlport = turnParams.port
 	}
-	var turnServerAddr string
-	turnServerAddr = net.JoinHostPort(urlhost, urlport)
+	turnServerAddr := net.JoinHostPort(urlhost, urlport)
 	turnServerUdpAddr, err1 := net.ResolveUDPAddr("udp", turnServerAddr)
 	if err1 != nil {
 		err = fmt.Errorf("failed to resolve TURN server address: %s", err1)
 		return
 	}
 	turnServerAddr = turnServerUdpAddr.String()
-	fmt.Println(turnServerUdpAddr.IP)
-	// Dial TURN Server
+	log.Printf("TURN server: %s", turnServerAddr)
 	var cfg *turn.ClientConfig
 	var turnConn net.PacketConn
 	var d net.Dialer
@@ -301,7 +296,7 @@ func oneTurnConnection(ctx context.Context, turnParams *turnParams, peer *net.UD
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
-	turnctx, turncancel := context.WithCancel(context.Background())
+	turnctx, turncancel := context.WithCancel(ctx)
 	context.AfterFunc(turnctx, func() {
 		if err := relayConn.SetDeadline(time.Now()); err != nil {
 			log.Printf("Failed to set relay deadline: %s", err)
@@ -431,7 +426,7 @@ func main() { //nolint:cyclop
 	port := flag.String("port", "", "override TURN port")
 	listen := flag.String("listen", "127.0.0.1:9000", "listen on ip:port")
 	vklink := flag.String("vk-link", "", "VK calls invite link \"https://vk.com/call/join/...\"")
-	yalink := flag.String("yandex-link", "", "Yandex telemost invite link \"https://telemost.yandex.ru/j/...\"")
+	yalink := flag.String("yandex-link", "", "[DEPRECATED] Yandex telemost link (service shut down)")
 	peerAddr := flag.String("peer", "", "peer server address (host:port)")
 	n := flag.Int("n", 0, "connections to TURN (default 1; increase for more speed, may hurt QUIC stability)")
 	udp := flag.Bool("udp", false, "connect to TURN with UDP")
@@ -508,7 +503,9 @@ func main() { //nolint:cyclop
 	}()
 
 	wg1 := sync.WaitGroup{}
-	t := time.Tick(200 * time.Millisecond)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+	t := ticker.C
 	if *direct {
 		for i := 0; i < *n; i++ {
 			wg1.Go(func() {
@@ -516,7 +513,7 @@ func main() { //nolint:cyclop
 			})
 		}
 	} else {
-		okchan := make(chan struct{})
+		okchan := make(chan struct{}, 1)
 		connchan := make(chan net.PacketConn)
 
 		wg1.Go(func() {
