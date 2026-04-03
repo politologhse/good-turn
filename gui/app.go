@@ -44,11 +44,11 @@ type StatusInfo struct {
 }
 
 type App struct {
-	ctx       context.Context
+	ctx        context.Context
 	wailsReady bool // true after Wails startup() callback
-	mu        sync.Mutex
-	state     AppState
-	message   string
+	mu         sync.Mutex
+	state      AppState
+	message    string
 
 	relay    *Relay
 	hysteria *HysteriaManager
