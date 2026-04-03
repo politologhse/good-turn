@@ -56,12 +56,22 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 		return resp, nil
 	}
 
-	var resp map[string]interface{}
-	defer func() {
-		if r := recover(); r != nil {
-			logf(fmt.Sprintf("get TURN creds error: %v", resp))
+	// #9 fix: safe JSON extraction helpers
+	getString := func(m map[string]interface{}, keys ...string) (string, error) {
+		var cur interface{} = m
+		for _, k := range keys {
+			mm, ok := cur.(map[string]interface{})
+			if !ok {
+				return "", fmt.Errorf("expected object at key %q", k)
+			}
+			cur = mm[k]
 		}
-	}()
+		s, ok := cur.(string)
+		if !ok {
+			return "", fmt.Errorf("expected string at %v, got %T", keys, cur)
+		}
+		return s, nil
+	}
 
 	data := "client_id=6287487&token_type=messages&client_secret=QbYic1K3lEV5kTGiqlq2&version=1&app_id=6287487"
 	url := "https://login.vk.ru/?act=get_anonym_token"
@@ -70,7 +80,10 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 	if err != nil {
 		return "", "", "", fmt.Errorf("request error: %s", err)
 	}
-	token1 := resp["data"].(map[string]interface{})["access_token"].(string)
+	token1, err := getString(resp, "data", "access_token")
+	if err != nil {
+		return "", "", "", fmt.Errorf("VK anon token: %w", err)
+	}
 
 	data = fmt.Sprintf("vk_join_link=https://vk.com/call/join/%s&name=123&access_token=%s", link, token1)
 	url = "https://api.vk.ru/method/calls.getAnonymousToken?v=5.274&client_id=6287487"
@@ -79,7 +92,10 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 	if err != nil {
 		return "", "", "", fmt.Errorf("request error: %s", err)
 	}
-	token2 := resp["response"].(map[string]interface{})["token"].(string)
+	token2, err := getString(resp, "response", "token")
+	if err != nil {
+		return "", "", "", fmt.Errorf("VK call token: %w", err)
+	}
 
 	data = fmt.Sprintf("%s%s%s", "session_data=%7B%22version%22%3A2%2C%22device_id%22%3A%22", uuid.New(), "%22%2C%22client_version%22%3A1.1%2C%22client_type%22%3A%22SDK_JS%22%7D&method=auth.anonymLogin&format=JSON&application_key=CGMMEJLGDIHBABABA")
 	url = "https://calls.okcdn.ru/fb.do"
@@ -88,7 +104,10 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 	if err != nil {
 		return "", "", "", fmt.Errorf("request error: %s", err)
 	}
-	token3 := resp["session_key"].(string)
+	token3, err := getString(resp, "session_key")
+	if err != nil {
+		return "", "", "", fmt.Errorf("OK session key: %w", err)
+	}
 
 	data = fmt.Sprintf("joinLink=%s&isVideo=false&protocolVersion=5&anonymToken=%s&method=vchat.joinConversationByLink&format=JSON&application_key=CGMMEJLGDIHBABABA&session_key=%s", link, token2, token3)
 	url = "https://calls.okcdn.ru/fb.do"
@@ -98,11 +117,30 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 		return "", "", "", fmt.Errorf("request error: %s", err)
 	}
 
-	user := resp["turn_server"].(map[string]interface{})["username"].(string)
-	pass := resp["turn_server"].(map[string]interface{})["credential"].(string)
-	turn := resp["turn_server"].(map[string]interface{})["urls"].([]interface{})[0].(string)
+	user, err := getString(resp, "turn_server", "username")
+	if err != nil {
+		return "", "", "", fmt.Errorf("TURN username: %w", err)
+	}
+	pass, err := getString(resp, "turn_server", "credential")
+	if err != nil {
+		return "", "", "", fmt.Errorf("TURN credential: %w", err)
+	}
 
-	clean := strings.Split(turn, "?")[0]
+	// Get first TURN URL
+	turnServer, ok := resp["turn_server"].(map[string]interface{})
+	if !ok {
+		return "", "", "", fmt.Errorf("missing turn_server in response")
+	}
+	urls, ok := turnServer["urls"].([]interface{})
+	if !ok || len(urls) == 0 {
+		return "", "", "", fmt.Errorf("missing turn_server urls")
+	}
+	turnURL, ok := urls[0].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("turn_server url is not a string")
+	}
+
+	clean := strings.Split(turnURL, "?")[0]
 	address := strings.TrimPrefix(strings.TrimPrefix(clean, "turn:"), "turns:")
 
 	return user, pass, address, nil

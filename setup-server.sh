@@ -137,8 +137,8 @@ echo ""
 echo -e "${GREEN}=== Done! ===${NC}"
 echo ""
 
-# Generate config string
-CONFIG=$(/usr/local/bin/good-turn-server -generate-config -addr "${MY_IP}:${PORT}" -pass "${PASS}" -sni "${SNI}")
+# Generate config string (pass via env to avoid ps aux leak)
+CONFIG=$(GT_PASS="${PASS}" /usr/local/bin/good-turn-server -generate-config -addr "${MY_IP}:${PORT}" -sni "${SNI}")
 
 echo -e "Config string for client app:"
 echo -e "${YELLOW}${CONFIG}${NC}"

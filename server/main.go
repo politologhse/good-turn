@@ -33,11 +33,17 @@ func main() {
 
 	// Config generation mode
 	if *genConfig {
-		if *gcAddr == "" || *gcPass == "" {
+		// #7 fix: prefer GT_PASS env var over -pass flag (avoids ps aux leak)
+		pass := *gcPass
+		if envPass := os.Getenv("GT_PASS"); envPass != "" {
+			pass = envPass
+		}
+		if *gcAddr == "" || pass == "" {
 			fmt.Fprintf(os.Stderr, "Usage: server -generate-config -addr <ip:port> -pass <password> [-sni <domain>]\n")
+			fmt.Fprintf(os.Stderr, "  Password can also be set via GT_PASS env var\n")
 			os.Exit(1)
 		}
-		data := map[string]string{"a": *gcAddr, "p": *gcPass, "s": *gcSNI}
+		data := map[string]string{"a": *gcAddr, "p": pass, "s": *gcSNI}
 		b, _ := json.Marshal(data)
 		fmt.Println("gt://" + base64.StdEncoding.EncodeToString(b))
 		return
@@ -66,7 +72,7 @@ func main() {
 	// Generate a certificate and private key to secure the connection
 	certificate, genErr := selfsign.GenerateSelfSigned()
 	if genErr != nil {
-		panic(err)
+		panic(genErr)
 	}
 
 	//

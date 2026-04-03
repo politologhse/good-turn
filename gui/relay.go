@@ -33,6 +33,7 @@ type Relay struct {
 	logf   logFunc
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+	ticker *time.Ticker
 }
 
 func NewRelay(cfg RelayConfig, logf logFunc) *Relay {
@@ -82,7 +83,9 @@ func (r *Relay) Start(parentCtx context.Context) error {
 		getCreds: r.cfg.GetCreds,
 	}
 
-	t := time.Tick(200 * time.Millisecond)
+	// #10 fix: use NewTicker instead of Tick so we can stop it
+	r.ticker = time.NewTicker(200 * time.Millisecond)
+	t := r.ticker.C
 
 	if r.cfg.NoDTLS {
 		for i := 0; i < r.cfg.Streams; i++ {
@@ -91,7 +94,8 @@ func (r *Relay) Start(parentCtx context.Context) error {
 			})
 		}
 	} else {
-		okchan := make(chan struct{})
+		// #12 fix: buffered channel so sender never blocks
+		okchan := make(chan struct{}, 1)
 		connchan := make(chan net.PacketConn)
 
 		r.wg.Go(func() {
@@ -101,7 +105,6 @@ func (r *Relay) Start(parentCtx context.Context) error {
 			r.oneTurnConnectionLoop(ctx, params, peer, connchan, t)
 		})
 
-		// Wait for first successful DTLS handshake or context cancellation
 		select {
 		case <-okchan:
 			r.logf("TURN relay connected")
@@ -130,6 +133,9 @@ func (r *Relay) Start(parentCtx context.Context) error {
 func (r *Relay) Stop() {
 	if r.cancel != nil {
 		r.cancel()
+	}
+	if r.ticker != nil {
+		r.ticker.Stop()
 	}
 	r.wg.Wait()
 	r.logf("Relay stopped")
@@ -191,16 +197,12 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 	}()
 	r.logf("DTLS connection established")
 
+	// #12 fix: non-blocking send on buffered okchan
 	if okchan != nil {
-		go func() {
-			for {
-				select {
-				case <-dtlsctx.Done():
-					return
-				case okchan <- struct{}{}:
-				}
-			}
-		}()
+		select {
+		case okchan <- struct{}{}:
+		default:
+		}
 	}
 
 	wg := sync.WaitGroup{}
@@ -391,7 +393,8 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
-	turnctx, turncancel := context.WithCancel(context.Background())
+	// #1 fix: use parent ctx instead of context.Background()
+	turnctx, turncancel := context.WithCancel(ctx)
 	context.AfterFunc(turnctx, func() {
 		relayConn.SetDeadline(time.Now())
 		conn2.SetDeadline(time.Now())

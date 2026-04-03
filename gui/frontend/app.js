@@ -171,9 +171,13 @@ importModal.addEventListener('click', (e) => {
 // === Persist config ===
 const STORAGE_KEY = 'goodturn-config';
 
+// #6 fix: never persist password to disk
+const SENSITIVE_FIELDS = new Set(['hyPassword']);
+
 function saveConfig() {
   const data = {};
   for (const [k, inp] of Object.entries(el)) {
+    if (SENSITIVE_FIELDS.has(k)) continue;
     data[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
   }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (_) {}

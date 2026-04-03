@@ -65,6 +65,8 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	// #8 fix: cleanup stale proxy settings on startup
+	a.proxy.Disable()
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -92,22 +94,26 @@ func (a *App) GetStatus() StatusInfo {
 	return StatusInfo{State: a.state, Message: a.message}
 }
 
+// #2 fix: Connect runs heavy work in a goroutine so it doesn't block the UI.
+// Mutex is only held briefly for state checks, not during network I/O.
 func (a *App) Connect(cfg ConnectConfig) error {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	if a.state == StateConnected || a.state == StateConnecting {
+		a.mu.Unlock()
 		return fmt.Errorf("already connected")
 	}
 
 	// Validate
 	if cfg.PeerAddr == "" {
+		a.mu.Unlock()
 		return fmt.Errorf("server address is required")
 	}
 	if cfg.VkLink == "" && cfg.YandexLink == "" {
+		a.mu.Unlock()
 		return fmt.Errorf("VK or Yandex link is required")
 	}
 	if cfg.HyPassword == "" {
+		a.mu.Unlock()
 		return fmt.Errorf("Hysteria2 password is required")
 	}
 	if cfg.SocksPort == 0 {
@@ -125,7 +131,14 @@ func (a *App) Connect(cfg ConnectConfig) error {
 	}
 
 	a.setState(StateConnecting, "Connecting...")
+	a.mu.Unlock()
 
+	// Heavy work runs without holding the mutex
+	go a.connectAsync(cfg)
+	return nil
+}
+
+func (a *App) connectAsync(cfg ConnectConfig) {
 	// Parse link
 	var link string
 	var getCreds getCredsFunc
@@ -152,12 +165,21 @@ func (a *App) Connect(cfg ConnectConfig) error {
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+
+	a.mu.Lock()
+	// Check if we were disconnected while setting up
+	if a.state != StateConnecting {
+		cancel()
+		a.mu.Unlock()
+		return
+	}
 	a.cancel = cancel
+	a.mu.Unlock()
 
 	listenAddr := "127.0.0.1:9000"
 
 	// 1. Start relay
-	a.relay = NewRelay(RelayConfig{
+	relay := NewRelay(RelayConfig{
 		PeerAddr:   cfg.PeerAddr,
 		ListenAddr: listenAddr,
 		TurnHost:   cfg.TurnHost,
@@ -169,15 +191,21 @@ func (a *App) Connect(cfg ConnectConfig) error {
 		GetCreds:   getCreds,
 	}, a.log)
 
-	if err := a.relay.Start(ctx); err != nil {
-		a.teardown()
+	if err := relay.Start(ctx); err != nil {
+		cancel()
+		a.mu.Lock()
 		a.setState(StateError, err.Error())
-		return err
+		a.mu.Unlock()
+		return
 	}
 
+	a.mu.Lock()
+	a.relay = relay
+	a.mu.Unlock()
+
 	// 2. Start Hysteria2
-	a.hysteria = NewHysteriaManager(a.log)
-	if err := a.hysteria.Start(ctx, HysteriaConfig{
+	hysteria := NewHysteriaManager(a.log)
+	if err := hysteria.Start(ctx, HysteriaConfig{
 		ServerAddr: listenAddr,
 		Password:   cfg.HyPassword,
 		SNI:        cfg.SNI,
@@ -185,23 +213,60 @@ func (a *App) Connect(cfg ConnectConfig) error {
 		SocksPort:  cfg.SocksPort,
 		HTTPPort:   cfg.HTTPPort,
 	}); err != nil {
+		a.mu.Lock()
 		a.teardown()
 		a.setState(StateError, err.Error())
-		return err
+		a.mu.Unlock()
+		return
 	}
+
+	a.mu.Lock()
+	a.hysteria = hysteria
+	a.mu.Unlock()
 
 	// 3. Enable system proxy
 	if cfg.SystemProxy {
 		if err := a.proxy.Enable(cfg.SocksPort); err != nil {
 			a.log(fmt.Sprintf("System proxy failed: %s", err))
 		} else {
+			a.mu.Lock()
 			a.proxyEnabled = true
+			a.mu.Unlock()
 			a.log(fmt.Sprintf("System SOCKS5 proxy enabled on :%d", cfg.SocksPort))
 		}
 	}
 
-	a.setState(StateConnected, fmt.Sprintf("SOCKS5 127.0.0.1:%d | HTTP 127.0.0.1:%d", cfg.SocksPort, cfg.HTTPPort))
-	return nil
+	a.mu.Lock()
+	a.setState(StateConnected, fmt.Sprintf("SOCKS5 :%d | HTTP :%d", cfg.SocksPort, cfg.HTTPPort))
+	a.mu.Unlock()
+
+	// #4 fix: watch for Hysteria2 crash and propagate to UI
+	go a.watchHysteria(ctx)
+}
+
+// #4 fix: monitor Hysteria2 process, set error state if it dies unexpectedly
+func (a *App) watchHysteria(ctx context.Context) {
+	a.mu.Lock()
+	hy := a.hysteria
+	a.mu.Unlock()
+	if hy == nil || hy.done == nil {
+		return
+	}
+
+	select {
+	case <-ctx.Done():
+		// Normal shutdown, do nothing
+		return
+	case <-hy.done:
+		// Hysteria2 exited unexpectedly
+		a.mu.Lock()
+		if a.state == StateConnected {
+			a.log("Hysteria2 process died, disconnecting...")
+			a.teardown()
+			a.setState(StateError, "Hysteria2 crashed")
+		}
+		a.mu.Unlock()
+	}
 }
 
 func (a *App) Disconnect() error {
@@ -217,13 +282,21 @@ func (a *App) Disconnect() error {
 	return nil
 }
 
+// #11 fix: cancel context FIRST, then stop subsystems
 func (a *App) teardown() {
+	// Signal everything to stop
+	if a.cancel != nil {
+		a.cancel()
+		a.cancel = nil
+	}
+	// Disable proxy
 	if a.proxyEnabled {
 		if err := a.proxy.Disable(); err != nil {
 			a.log(fmt.Sprintf("Disable proxy: %s", err))
 		}
 		a.proxyEnabled = false
 	}
+	// Wait for subsystems
 	if a.hysteria != nil {
 		a.hysteria.Stop()
 		a.hysteria = nil
@@ -231,9 +304,5 @@ func (a *App) teardown() {
 	if a.relay != nil {
 		a.relay.Stop()
 		a.relay = nil
-	}
-	if a.cancel != nil {
-		a.cancel()
-		a.cancel = nil
 	}
 }

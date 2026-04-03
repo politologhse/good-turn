@@ -81,11 +81,12 @@ http:
   listen: 127.0.0.1:%d
 `, cfg.ServerAddr, cfg.Password, cfg.SNI, cfg.Insecure, cfg.SocksPort, cfg.HTTPPort)
 
-	// Write temp config
+	// Write temp config with restricted permissions
 	tmpFile, err := os.CreateTemp("", "hysteria-*.yaml")
 	if err != nil {
 		return fmt.Errorf("create config: %w", err)
 	}
+	os.Chmod(tmpFile.Name(), 0600)
 	if _, err := tmpFile.WriteString(configContent); err != nil {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
