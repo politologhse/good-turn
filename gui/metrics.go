@@ -7,10 +7,10 @@ import (
 
 // ConnMetrics tracks connection health stats, exposed to the frontend.
 type ConnMetrics struct {
-	BytesUp       atomic.Int64
-	BytesDown     atomic.Int64
-	Reconnects    atomic.Int64
-	ConnectedAt   atomic.Int64 // unix timestamp
+	BytesUp        atomic.Int64
+	BytesDown      atomic.Int64
+	Reconnects     atomic.Int64
+	ConnectedAt    atomic.Int64 // unix timestamp
 	LastActivityAt atomic.Int64 // unix timestamp
 }
 
@@ -34,11 +34,11 @@ func (m *ConnMetrics) MarkConnected() {
 }
 
 type MetricsSnapshot struct {
-	BytesUp    int64  `json:"bytesUp"`
-	BytesDown  int64  `json:"bytesDown"`
-	Reconnects int64  `json:"reconnects"`
-	UptimeSec  int64  `json:"uptimeSec"`
-	IdleSec    int64  `json:"idleSec"`
+	BytesUp    int64 `json:"bytesUp"`
+	BytesDown  int64 `json:"bytesDown"`
+	Reconnects int64 `json:"reconnects"`
+	UptimeSec  int64 `json:"uptimeSec"`
+	IdleSec    int64 `json:"idleSec"`
 }
 
 func (m *ConnMetrics) Snapshot() MetricsSnapshot {

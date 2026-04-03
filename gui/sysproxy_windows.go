@@ -15,8 +15,8 @@ const (
 )
 
 var (
-	wininet                = syscall.NewLazyDLL("wininet.dll")
-	internetSetOptionW     = wininet.NewProc("InternetSetOptionW")
+	wininet            = syscall.NewLazyDLL("wininet.dll")
+	internetSetOptionW = wininet.NewProc("InternetSetOptionW")
 )
 
 type windowsProxy struct{}
