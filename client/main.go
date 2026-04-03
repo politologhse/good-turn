@@ -504,7 +504,7 @@ func oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listenConn net.Pa
 	go func() {
 		defer wg.Done()
 		defer dtlscancel()
-		buf := make([]byte, 1600)
+		buf := make([]byte, 4096)
 		for {
 			select {
 			case <-dtlsctx.Done():
@@ -531,7 +531,7 @@ func oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listenConn net.Pa
 	go func() {
 		defer wg.Done()
 		defer dtlscancel()
-		buf := make([]byte, 1600)
+		buf := make([]byte, 4096)
 		for {
 			select {
 			case <-dtlsctx.Done():
@@ -709,7 +709,7 @@ func oneTurnConnection(ctx context.Context, turnParams *turnParams, peer *net.UD
 	go func() {
 		defer wg.Done()
 		defer turncancel()
-		buf := make([]byte, 1600)
+		buf := make([]byte, 4096)
 		for {
 			select {
 			case <-turnctx.Done():
@@ -736,7 +736,7 @@ func oneTurnConnection(ctx context.Context, turnParams *turnParams, peer *net.UD
 	go func() {
 		defer wg.Done()
 		defer turncancel()
-		buf := make([]byte, 1600)
+		buf := make([]byte, 4096)
 		for {
 			select {
 			case <-turnctx.Done():
@@ -827,7 +827,7 @@ func main() { //nolint:cyclop
 	vklink := flag.String("vk-link", "", "VK calls invite link \"https://vk.com/call/join/...\"")
 	yalink := flag.String("yandex-link", "", "Yandex telemost invite link \"https://telemost.yandex.ru/j/...\"")
 	peerAddr := flag.String("peer", "", "peer server address (host:port)")
-	n := flag.Int("n", 0, "connections to TURN (default 16 for VK, 1 for Yandex)")
+	n := flag.Int("n", 0, "connections to TURN (default 1; increase for more speed, may hurt QUIC stability)")
 	udp := flag.Bool("udp", false, "connect to TURN with UDP")
 	direct := flag.Bool("no-dtls", false, "connect without obfuscation. DO NOT USE")
 	flag.Parse()
@@ -858,7 +858,7 @@ func main() { //nolint:cyclop
 			return getVkCreds(s, dialer)
 		}
 		if *n <= 0 {
-			*n = 16
+			*n = 1
 		}
 	} else {
 		parts := strings.Split(*yalink, "j/")

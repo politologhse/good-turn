@@ -1,0 +1,7 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "good-turn",
+  "outputfilename": "good-turn",
+  "frontend:dir": "frontend",
+  "assetdir": "frontend"
+}

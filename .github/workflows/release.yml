@@ -2,61 +2,36 @@ name: Release
 
 on:
   push:
-    # Trigger on tag pushes. Adjust pattern as needed (e.g. 'v*.*.*')
     tags:
       - '**'
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build binaries
+  # === CLI builds (existing) ===
+  build-cli:
+    name: CLI ${{ matrix.goos }}/${{ matrix.goarch }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - goos: linux
             goarch: amd64
-            cgo: 0
           - goos: linux
             goarch: arm64
-            cgo: 0
-          - goos: linux
-            goarch: 386
-            cgo: 0
           - goos: linux
             goarch: arm
             goarm: '7'
-            cgo: 0
           - goos: linux
             goarch: mipsle
             gomips: softfloat
-            cgo: 0
-          - goos: linux
-            goarch: mips
-            gomips: softfloat
-            cgo: 0
-          - goos: linux
-            goarch: mips64le
-            gomips: softfloat
-            cgo: 0
-          - goos: linux
-            goarch: riscv64
-            cgo: 0            
           - goos: darwin
             goarch: amd64
-            cgo: 0
           - goos: darwin
             goarch: arm64
-            cgo: 0
           - goos: windows
             goarch: amd64
-            cgo: 0
           - goos: windows
             goarch: arm64
-            cgo: 0
-          - goos: windows
-            goarch: 386
-            cgo: 0
           - goos: android
             goarch: arm64
             cgo: 1
@@ -65,20 +40,14 @@ jobs:
             goarch: arm
             cgo: 1
             api: 21
-          - goos: freebsd
-            goarch: amd64
-            cgo: 0
 
     steps:
-      - name: Check out code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
 
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.25.5'
 
-      # Install Android NDK only for android rows
       - name: Setup Android NDK
         if: matrix.goos == 'android'
         id: setup-ndk
@@ -87,83 +56,143 @@ jobs:
           ndk-version: r26d
           add-to-path: false
 
-      - name: Build
+      - name: Build CLI
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           GOMIPS: ${{ matrix.gomips }}
           GOARM: ${{ matrix.goarm }}
-          CGO_ENABLED: ${{ matrix.cgo }}
+          CGO_ENABLED: ${{ matrix.cgo || '0' }}
           ANDROID_API: ${{ matrix.api }}
           ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
-          VERSION: ${{ github.ref_name }}
         run: |
-          echo "Building for $GOOS/$GOARCH${GOARM:+/arm$GOARM} (CGO_ENABLED=$CGO_ENABLED)"
-
           if [ "$GOOS" = "android" ]; then
-            if [ -z "$ANDROID_NDK_HOME" ]; then
-              echo "ANDROID_NDK_HOME is not set – did setup-ndk run?"
-              exit 1
-            fi
-
             TOOLCHAIN_BIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
-
             if [ "$GOARCH" = "arm64" ]; then
               export CC="$TOOLCHAIN_BIN/aarch64-linux-android${ANDROID_API}-clang"
             elif [ "$GOARCH" = "arm" ]; then
               export CC="$TOOLCHAIN_BIN/armv7a-linux-androideabi${ANDROID_API}-clang"
-            else
-              echo "Unsupported ANDROID GOARCH=$GOARCH"
-              exit 1
             fi
-
-            echo "Using Android NDK CC=$CC"
           fi
 
           mkdir -p dist
+          EXT=""; [ "$GOOS" = "windows" ] && EXT=.exe
 
-          # Set extension for windows
-          if [ "${GOOS}" = "windows" ]; then
-            EXT=.exe
-          else
-            EXT=
-          fi
-
-          GOOS=$GOOS GOARCH=$GOARCH GOARM=$GOARM GOMIPS=$GOMIPS \
           go build -ldflags "-s -w -checklinkname=0" -trimpath \
-            -o "dist/client-${GOOS}-${GOARCH}${EXT}" \
-            ./client
-          
-          GOOS=$GOOS GOARCH=$GOARCH GOARM=$GOARM GOMIPS=$GOMIPS \
-          go build -ldflags "-s -w -checklinkname=0" -trimpath \
-            -o "dist/server-${GOOS}-${GOARCH}${EXT}" \
-            ./server
+            -o "dist/client-${GOOS}-${GOARCH}${EXT}" ./client
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v6
+          go build -ldflags "-s -w -checklinkname=0" -trimpath \
+            -o "dist/server-${GOOS}-${GOARCH}${EXT}" ./server
+
+      - uses: actions/upload-artifact@v6
         with:
-          name: good-turn-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: cli-${{ matrix.goos }}-${{ matrix.goarch }}
           path: dist/**
 
+  # === GUI builds (macOS + Windows with bundled Hysteria2) ===
+  build-gui-macos:
+    name: GUI macOS/${{ matrix.arch }}
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, amd64]
+    env:
+      HY_VERSION: "app/v2.6.1"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.5'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Download Hysteria2
+        run: |
+          curl -fSL -o /tmp/hysteria \
+            "https://github.com/apernet/hysteria/releases/download/${HY_VERSION}/hysteria-darwin-${{ matrix.arch }}"
+          chmod +x /tmp/hysteria
+
+      - name: Build GUI
+        working-directory: gui
+        run: |
+          wails build -platform "darwin/${{ matrix.arch }}" -clean
+
+      - name: Bundle Hysteria2 into .app
+        working-directory: gui
+        run: |
+          cp /tmp/hysteria "build/bin/good-turn.app/Contents/MacOS/hysteria"
+          chmod +x "build/bin/good-turn.app/Contents/MacOS/hysteria"
+
+      - name: Create ZIP
+        working-directory: gui/build/bin
+        run: |
+          ditto -c -k --keepParent good-turn.app "Good-TURN-macos-${{ matrix.arch }}.zip"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gui-macos-${{ matrix.arch }}
+          path: gui/build/bin/Good-TURN-macos-*.zip
+
+  build-gui-windows:
+    name: GUI Windows/amd64
+    runs-on: windows-latest
+    env:
+      HY_VERSION: "app/v2.6.1"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.5'
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Download Hysteria2
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/apernet/hysteria/releases/download/$env:HY_VERSION/hysteria-windows-amd64.exe" -OutFile "$env:TEMP\hysteria.exe"
+
+      - name: Build GUI
+        working-directory: gui
+        run: wails build -platform "windows/amd64" -clean
+
+      - name: Bundle Hysteria2
+        shell: pwsh
+        run: |
+          Copy-Item "$env:TEMP\hysteria.exe" "gui\build\bin\hysteria.exe"
+
+      - name: Create ZIP
+        shell: pwsh
+        working-directory: gui\build\bin
+        run: |
+          Compress-Archive -Path good-turn.exe, hysteria.exe -DestinationPath "Good-TURN-windows-amd64.zip"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: gui-windows-amd64
+          path: gui/build/bin/Good-TURN-windows-*.zip
+
+  # === Release ===
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build-cli, build-gui-macos, build-gui-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v7
         with:
           path: dist
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          # upload every file in dist/ including nested files
-          files: |
-            dist/**
-          # make the release name/tag the pushed tag
+          files: dist/**
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           overwrite_files: true

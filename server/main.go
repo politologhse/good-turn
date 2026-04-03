@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -19,8 +21,31 @@ import (
 
 func main() {
 	listen := flag.String("listen", "0.0.0.0:56000", "listen on ip:port")
-	connect := flag.String("connect", "", "connect to ip:port")
+	connect := flag.String("connect", "", "connect to ip:port (e.g. 127.0.0.1:443)")
+
+	// Config generation flags
+	genConfig := flag.Bool("generate-config", false, "generate gt:// config string and exit")
+	gcAddr := flag.String("addr", "", "server address for config (e.g. 185.1.2.3:56000)")
+	gcPass := flag.String("pass", "", "hysteria2 password for config")
+	gcSNI := flag.String("sni", "hy2", "SNI for config")
+
 	flag.Parse()
+
+	// Config generation mode
+	if *genConfig {
+		if *gcAddr == "" || *gcPass == "" {
+			fmt.Fprintf(os.Stderr, "Usage: server -generate-config -addr <ip:port> -pass <password> [-sni <domain>]\n")
+			os.Exit(1)
+		}
+		data := map[string]string{"a": *gcAddr, "p": *gcPass, "s": *gcSNI}
+		b, _ := json.Marshal(data)
+		fmt.Println("gt://" + base64.StdEncoding.EncodeToString(b))
+		return
+	}
+
+	if *connect == "" {
+		log.Panicf("-connect is required (e.g. -connect 127.0.0.1:443)")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -37,9 +62,6 @@ func main() {
 	addr, err := net.ResolveUDPAddr("udp", *listen)
 	if err != nil {
 		panic(err)
-	}
-	if len(*connect) == 0 {
-		log.Panicf("server address is required")
 	}
 	// Generate a certificate and private key to secure the connection
 	certificate, genErr := selfsign.GenerateSelfSigned()
@@ -143,7 +165,7 @@ func main() {
 			go func() {
 				defer wg.Done()
 				defer cancel2()
-				buf := make([]byte, 1600)
+				buf := make([]byte, 4096)
 				for {
 					select {
 					case <-ctx2.Done():
@@ -174,7 +196,7 @@ func main() {
 			go func() {
 				defer wg.Done()
 				defer cancel2()
-				buf := make([]byte, 1600)
+				buf := make([]byte, 4096)
 				for {
 					select {
 					case <-ctx2.Done():
