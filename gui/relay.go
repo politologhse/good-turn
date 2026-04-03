@@ -62,7 +62,7 @@ func (r *Relay) Start(parentCtx context.Context) error {
 		return fmt.Errorf("listen: %w", err)
 	}
 	context.AfterFunc(ctx, func() {
-		listenConn.Close()
+		_ = listenConn.Close()
 	})
 
 	listenConnChan := make(chan net.PacketConn)
@@ -345,7 +345,7 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 			err = fmt.Errorf("dial TURN: %s", err2)
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		turnConn = &connectedUDPConn{conn}
 	} else {
 		conn, err2 := d.DialContext(ctx1, "tcp", turnServerAddr)
@@ -353,7 +353,7 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 			err = fmt.Errorf("dial TURN: %s", err2)
 			return
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 		turnConn = turn.NewSTUNConn(conn)
 	}
 
@@ -392,7 +392,7 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 		err = fmt.Errorf("TURN allocate: %s", err1)
 		return
 	}
-	defer relayConn.Close()
+	defer func() { _ = relayConn.Close() }()
 
 	r.logf(fmt.Sprintf("Relay address: %s", relayConn.LocalAddr().String()))
 

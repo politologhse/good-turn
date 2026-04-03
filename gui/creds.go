@@ -66,7 +66,7 @@ func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, st
 		if err != nil {
 			return nil, err
 		}
-		defer httpResp.Body.Close()
+		defer func() { _ = httpResp.Body.Close() }()
 
 		body, err := io.ReadAll(httpResp.Body)
 		if err != nil {
@@ -301,7 +301,7 @@ func getYandexCreds(link string, logf logFunc) (string, string, string, error) {
 	if err != nil {
 		return "", "", "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return "", "", "", fmt.Errorf("GetConference: status=%s body=%s", resp.Status, string(body))
@@ -329,7 +329,7 @@ func getYandexCreds(link string, logf logFunc) (string, string, string, error) {
 	if err != nil {
 		return "", "", "", fmt.Errorf("ws dial: %w", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	req1 := HelloRequest{
 		UID: uuid.New().String(),

@@ -88,11 +88,11 @@ http:
 	}
 	_ = os.Chmod(tmpFile.Name(), 0600)
 	if _, err := tmpFile.WriteString(configContent); err != nil {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
+		_ = tmpFile.Close()
+		_ = os.Remove(tmpFile.Name())
 		return fmt.Errorf("write config: %w", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 	h.configPath = tmpFile.Name()
 
 	ctx, cancel := context.WithCancel(parentCtx)
@@ -104,19 +104,19 @@ http:
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		cancel()
-		os.Remove(h.configPath)
+		_ = os.Remove(h.configPath)
 		return fmt.Errorf("stdout pipe: %w", err)
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		cancel()
-		os.Remove(h.configPath)
+		_ = os.Remove(h.configPath)
 		return fmt.Errorf("stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
 		cancel()
-		os.Remove(h.configPath)
+		_ = os.Remove(h.configPath)
 		return fmt.Errorf("start hysteria: %w", err)
 	}
 
@@ -150,7 +150,7 @@ http:
 				h.logf(fmt.Sprintf("Hysteria2 exited: %s", err))
 			}
 		}
-		os.Remove(h.configPath)
+		_ = os.Remove(h.configPath)
 		h.configPath = ""
 	}()
 
