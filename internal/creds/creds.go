@@ -195,8 +195,8 @@ func GetYandexCreds(link string, logf LogFunc) (string, string, string, error) {
 	telemostConfPath := fmt.Sprintf("/telemost_front/v2/telemost/conferences/https%%3A%%2F%%2Ftelemost.yandex.ru%%2Fj%%2F%s/connection?next_gen_media_platform_allowed=false", link)
 
 	type ConferenceResponse struct {
-		RoomID string `json:"room_id"`
-		PeerID string `json:"peer_id"`
+		RoomID              string `json:"room_id"`
+		PeerID              string `json:"peer_id"`
 		ClientConfiguration struct {
 			MediaServerURL string `json:"media_server_url"`
 		} `json:"client_configuration"`
@@ -306,9 +306,9 @@ func buildYandexHello(participantID, roomID, credentials string) map[string]inte
 	return map[string]interface{}{
 		"uid": uuid.New().String(),
 		"hello": map[string]interface{}{
-			"participantMeta":        map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": "", "sendAudio": false, "sendVideo": false},
-			"participantAttributes":  map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": ""},
-			"sendAudio": false, "sendVideo": false, "sendSharing": false,
+			"participantMeta":       map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": "", "sendAudio": false, "sendVideo": false},
+			"participantAttributes": map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": ""},
+			"sendAudio":             false, "sendVideo": false, "sendSharing": false,
 			"participantId": participantID, "roomId": roomID,
 			"serviceName": "telemost", "credentials": credentials,
 			"sdkInfo": map[string]interface{}{
@@ -324,17 +324,17 @@ func buildYandexHello(participantID, roomID, credentials string) map[string]inte
 				"slotsMode": []string{"FROM_CONTROLLER"}, "simulcastMode": []string{"DISABLED"},
 				"selfVadStatus": []string{"FROM_SERVER"}, "dataChannelSharing": []string{"TO_RTP"},
 				"videoEncoderConfig": []string{"NO_CONFIG"}, "dataChannelVideoCodec": []string{"VP8"},
-				"bandwidthLimitationReason": []string{"BANDWIDTH_REASON_DISABLED"},
+				"bandwidthLimitationReason":  []string{"BANDWIDTH_REASON_DISABLED"},
 				"sdkDefaultDeviceManagement": []string{"SDK_DEFAULT_DEVICE_MANAGEMENT_DISABLED"},
-				"joinOrderLayout": []string{"JOIN_ORDER_LAYOUT_DISABLED"}, "pinLayout": []string{"PIN_LAYOUT_DISABLED"},
-				"sendSelfViewVideoSlot": []string{"SEND_SELF_VIEW_VIDEO_SLOT_DISABLED"},
-				"serverLayoutTransition": []string{"SERVER_LAYOUT_TRANSITION_DISABLED"},
+				"joinOrderLayout":            []string{"JOIN_ORDER_LAYOUT_DISABLED"}, "pinLayout": []string{"PIN_LAYOUT_DISABLED"},
+				"sendSelfViewVideoSlot":       []string{"SEND_SELF_VIEW_VIDEO_SLOT_DISABLED"},
+				"serverLayoutTransition":      []string{"SERVER_LAYOUT_TRANSITION_DISABLED"},
 				"sdkPublisherOptimizeBitrate": []string{"SDK_PUBLISHER_OPTIMIZE_BITRATE_DISABLED"},
-				"sdkNetworkLostDetection": []string{"SDK_NETWORK_LOST_DETECTION_DISABLED"},
-				"sdkNetworkPathMonitor": []string{"SDK_NETWORK_PATH_MONITOR_DISABLED"},
-				"publisherVp9": []string{"PUBLISH_VP9_DISABLED"}, "svcMode": []string{"SVC_MODE_DISABLED"},
+				"sdkNetworkLostDetection":     []string{"SDK_NETWORK_LOST_DETECTION_DISABLED"},
+				"sdkNetworkPathMonitor":       []string{"SDK_NETWORK_PATH_MONITOR_DISABLED"},
+				"publisherVp9":                []string{"PUBLISH_VP9_DISABLED"}, "svcMode": []string{"SVC_MODE_DISABLED"},
 				"subscriberOfferAsyncAck": []string{"SUBSCRIBER_OFFER_ASYNC_ACK_DISABLED"},
-				"svcModes": []string{"FALSE"}, "reportTelemetryModes": []string{"TRUE"},
+				"svcModes":                []string{"FALSE"}, "reportTelemetryModes": []string{"TRUE"},
 				"keepDefaultDevicesModes": []string{"TRUE"},
 			},
 		},

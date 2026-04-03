@@ -44,10 +44,11 @@ type StatusInfo struct {
 }
 
 type App struct {
-	ctx     context.Context
-	mu      sync.Mutex
-	state   AppState
-	message string
+	ctx       context.Context
+	wailsReady bool // true after Wails startup() callback
+	mu        sync.Mutex
+	state     AppState
+	message   string
 
 	relay    *Relay
 	hysteria *HysteriaManager
@@ -66,6 +67,7 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.wailsReady = true
 	// #8 fix: cleanup stale proxy settings on startup
 	_ = a.proxy.Disable()
 }
@@ -79,14 +81,18 @@ func (a *App) shutdown(ctx context.Context) {
 func (a *App) setState(state AppState, msg string) {
 	a.state = state
 	a.message = msg
-	wailsrt.EventsEmit(a.ctx, "state-change", map[string]string{
-		"state":   string(state),
-		"message": msg,
-	})
+	if a.wailsReady {
+		wailsrt.EventsEmit(a.ctx, "state-change", map[string]string{
+			"state":   string(state),
+			"message": msg,
+		})
+	}
 }
 
 func (a *App) log(msg string) {
-	wailsrt.EventsEmit(a.ctx, "log", msg)
+	if a.wailsReady {
+		wailsrt.EventsEmit(a.ctx, "log", msg)
+	}
 }
 
 func (a *App) GetStatus() StatusInfo {
