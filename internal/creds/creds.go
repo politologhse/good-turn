@@ -1,9 +1,8 @@
-// Package creds fetches TURN credentials from VK and Yandex APIs.
+// Package creds fetches TURN credentials from VK API.
 package creds
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +12,6 @@ import (
 
 	"github.com/bschaatsbergen/dnsdialer"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 // LogFunc is a callback for log messages.
@@ -187,157 +185,4 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 	}
 
 	return user, pass, ParseTurnURL(turnURL), nil
-}
-
-// GetYandexCreds fetches TURN credentials from Yandex Telemost link.
-// Deprecated: Telemost has been shut down. Kept for reference only.
-func GetYandexCreds(link string, logf LogFunc) (string, string, string, error) {
-	const telemostConfHost = "cloud-api.yandex.ru"
-	telemostConfPath := fmt.Sprintf("/telemost_front/v2/telemost/conferences/https%%3A%%2F%%2Ftelemost.yandex.ru%%2Fj%%2F%s/connection?next_gen_media_platform_allowed=false", link)
-
-	type ConferenceResponse struct {
-		RoomID              string `json:"room_id"`
-		PeerID              string `json:"peer_id"`
-		ClientConfiguration struct {
-			MediaServerURL string `json:"media_server_url"`
-		} `json:"client_configuration"`
-		Credentials string `json:"credentials"`
-	}
-
-	client := &http.Client{
-		Timeout: 20 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        100,
-			MaxIdleConnsPerHost: 100,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
-	defer client.CloseIdleConnections()
-
-	req, err := http.NewRequest("GET", "https://"+telemostConfHost+telemostConfPath, nil)
-	if err != nil {
-		return "", "", "", err
-	}
-	req.Header.Set("User-Agent", defaultUserAgent)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Referer", "https://telemost.yandex.ru/")
-	req.Header.Set("Origin", "https://telemost.yandex.ru")
-	req.Header.Set("Client-Instance-Id", uuid.New().String())
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", "", "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", "", "", fmt.Errorf("telemost: status=%s body=%s", resp.Status, string(body))
-	}
-
-	var conf ConferenceResponse
-	if err := json.NewDecoder(resp.Body).Decode(&conf); err != nil {
-		return "", "", "", fmt.Errorf("decode conf: %w", err)
-	}
-
-	h := http.Header{}
-	h.Set("Origin", "https://telemost.yandex.ru")
-	h.Set("User-Agent", defaultUserAgent)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-
-	wsDialer := websocket.Dialer{}
-	conn, _, err := wsDialer.DialContext(ctx, conf.ClientConfiguration.MediaServerURL, h)
-	if err != nil {
-		return "", "", "", fmt.Errorf("ws dial: %w", err)
-	}
-	defer func() { _ = conn.Close() }()
-
-	hello := buildYandexHello(conf.PeerID, conf.RoomID, conf.Credentials)
-	if err := conn.WriteJSON(hello); err != nil {
-		return "", "", "", fmt.Errorf("ws write: %w", err)
-	}
-	if err := conn.SetReadDeadline(time.Now().Add(15 * time.Second)); err != nil {
-		return "", "", "", fmt.Errorf("ws deadline: %w", err)
-	}
-
-	for {
-		_, msg, err := conn.ReadMessage()
-		if err != nil {
-			return "", "", "", fmt.Errorf("ws read: %w", err)
-		}
-
-		var ack struct {
-			Ack struct {
-				Status struct{ Code string } `json:"status"`
-			} `json:"ack"`
-		}
-		if err := json.Unmarshal(msg, &ack); err == nil && ack.Ack.Status.Code != "" {
-			continue
-		}
-
-		var wssResp struct {
-			ServerHello struct {
-				RtcConfiguration struct {
-					IceServers []struct {
-						Urls       []string `json:"urls"`
-						Username   string   `json:"username,omitempty"`
-						Credential string   `json:"credential,omitempty"`
-					} `json:"iceServers"`
-				} `json:"rtcConfiguration"`
-			} `json:"serverHello"`
-		}
-		if err := json.Unmarshal(msg, &wssResp); err == nil {
-			for _, s := range wssResp.ServerHello.RtcConfiguration.IceServers {
-				for _, u := range s.Urls {
-					if !strings.HasPrefix(u, "turn:") && !strings.HasPrefix(u, "turns:") {
-						continue
-					}
-					if strings.Contains(u, "transport=tcp") {
-						continue
-					}
-					return s.Username, s.Credential, ParseTurnURL(u), nil
-				}
-			}
-		}
-	}
-}
-
-func buildYandexHello(participantID, roomID, credentials string) map[string]interface{} {
-	return map[string]interface{}{
-		"uid": uuid.New().String(),
-		"hello": map[string]interface{}{
-			"participantMeta":       map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": "", "sendAudio": false, "sendVideo": false},
-			"participantAttributes": map[string]interface{}{"name": "Guest", "role": "SPEAKER", "description": ""},
-			"sendAudio":             false, "sendVideo": false, "sendSharing": false,
-			"participantId": participantID, "roomId": roomID,
-			"serviceName": "telemost", "credentials": credentials,
-			"sdkInfo": map[string]interface{}{
-				"implementation": "browser", "version": "5.15.0",
-				"userAgent": defaultUserAgent, "hwConcurrency": 4,
-			},
-			"sdkInitializationId":    uuid.New().String(),
-			"disablePublisher":       false,
-			"disableSubscriber":      false,
-			"disableSubscriberAudio": false,
-			"capabilitiesOffer": map[string]interface{}{
-				"offerAnswerMode": []string{"SEPARATE"}, "initialSubscriberOffer": []string{"ON_HELLO"},
-				"slotsMode": []string{"FROM_CONTROLLER"}, "simulcastMode": []string{"DISABLED"},
-				"selfVadStatus": []string{"FROM_SERVER"}, "dataChannelSharing": []string{"TO_RTP"},
-				"videoEncoderConfig": []string{"NO_CONFIG"}, "dataChannelVideoCodec": []string{"VP8"},
-				"bandwidthLimitationReason":  []string{"BANDWIDTH_REASON_DISABLED"},
-				"sdkDefaultDeviceManagement": []string{"SDK_DEFAULT_DEVICE_MANAGEMENT_DISABLED"},
-				"joinOrderLayout":            []string{"JOIN_ORDER_LAYOUT_DISABLED"}, "pinLayout": []string{"PIN_LAYOUT_DISABLED"},
-				"sendSelfViewVideoSlot":       []string{"SEND_SELF_VIEW_VIDEO_SLOT_DISABLED"},
-				"serverLayoutTransition":      []string{"SERVER_LAYOUT_TRANSITION_DISABLED"},
-				"sdkPublisherOptimizeBitrate": []string{"SDK_PUBLISHER_OPTIMIZE_BITRATE_DISABLED"},
-				"sdkNetworkLostDetection":     []string{"SDK_NETWORK_LOST_DETECTION_DISABLED"},
-				"sdkNetworkPathMonitor":       []string{"SDK_NETWORK_PATH_MONITOR_DISABLED"},
-				"publisherVp9":                []string{"PUBLISH_VP9_DISABLED"}, "svcMode": []string{"SVC_MODE_DISABLED"},
-				"subscriberOfferAsyncAck": []string{"SUBSCRIBER_OFFER_ASYNC_ACK_DISABLED"},
-				"svcModes":                []string{"FALSE"}, "reportTelemetryModes": []string{"TRUE"},
-				"keepDefaultDevicesModes": []string{"TRUE"},
-			},
-		},
-	}
 }

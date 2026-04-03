@@ -12,7 +12,6 @@ const el = {
   httpPort:    $('httpPort'),
   turnHost:    $('turnHost'),
   turnPort:    $('turnPort'),
-  yandexLink:  $('yandexLink'),
   systemProxy: $('systemProxy'),
   insecure:    $('insecure'),
   noDtls:      $('noDtls'),
@@ -91,7 +90,6 @@ function log(msg) {
 async function connect() {
   const config = {
     vkLink:      el.vkLink.value.trim(),
-    yandexLink:  el.yandexLink.value.trim(),
     peerAddr:    el.peerAddr.value.trim(),
     hyPassword:  el.hyPassword.value,
     sni:         el.sni.value.trim(),
@@ -108,7 +106,7 @@ async function connect() {
 
   // Basic validation
   if (!config.peerAddr) { log('Enter server address'); return; }
-  if (!config.vkLink && !config.yandexLink) { log('Enter VK link'); return; }
+  if (!config.vkLink) { log('Enter VK link'); return; }
   if (!config.hyPassword) { log('Enter password'); return; }
 
   saveConfig();

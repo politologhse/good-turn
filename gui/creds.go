@@ -9,7 +9,6 @@ type logFunc = creds.LogFunc
 type getCredsFunc = creds.GetCredsFunc
 
 var (
-	withRetry      = creds.WithRetry
-	getVkCreds     = creds.GetVkCreds
-	getYandexCreds = creds.GetYandexCreds
+	withRetry  = creds.WithRetry
+	getVkCreds = creds.GetVkCreds
 )

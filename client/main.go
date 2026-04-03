@@ -426,7 +426,6 @@ func main() { //nolint:cyclop
 	port := flag.String("port", "", "override TURN port")
 	listen := flag.String("listen", "127.0.0.1:9000", "listen on ip:port")
 	vklink := flag.String("vk-link", "", "VK calls invite link \"https://vk.com/call/join/...\"")
-	yalink := flag.String("yandex-link", "", "[DEPRECATED] Yandex telemost link (service shut down)")
 	peerAddr := flag.String("peer", "", "peer server address (host:port)")
 	n := flag.Int("n", 0, "connections to TURN (default 1; increase for more speed, may hurt QUIC stability)")
 	udp := flag.Bool("udp", false, "connect to TURN with UDP")
@@ -439,37 +438,24 @@ func main() { //nolint:cyclop
 	if err != nil {
 		panic(err)
 	}
-	if (*vklink == "") == (*yalink == "") {
-		log.Panicf("Need either vk-link or yandex-link!")
+	if *vklink == "" {
+		log.Fatal("Need -vk-link")
 	}
 
-	var link string
-	var getCreds getCredsFunc
-	if *vklink != "" {
-		parts := strings.Split(*vklink, "join/")
-		link = parts[len(parts)-1]
+	parts := strings.Split(*vklink, "join/")
+	link := parts[len(parts)-1]
 
-		dialer := dnsdialer.New(
-			dnsdialer.WithResolvers("77.88.8.8:53", "77.88.8.1:53", "8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"),
-			dnsdialer.WithStrategy(dnsdialer.Fallback{}),
-			dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
-		)
+	dialer := dnsdialer.New(
+		dnsdialer.WithResolvers("77.88.8.8:53", "77.88.8.1:53", "8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"),
+		dnsdialer.WithStrategy(dnsdialer.Fallback{}),
+		dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
+	)
 
-		getCreds = func(s string) (string, string, string, error) {
-			return creds.GetVkCreds(s, dialer, cliLog)
-		}
-		if *n <= 0 {
-			*n = 1
-		}
-	} else {
-		parts := strings.Split(*yalink, "j/")
-		link = parts[len(parts)-1]
-		getCreds = func(s string) (string, string, string, error) {
-			return creds.GetYandexCreds(s, cliLog)
-		}
-		if *n <= 0 {
-			*n = 1
-		}
+	getCreds := func(s string) (string, string, string, error) {
+		return creds.GetVkCreds(s, dialer, cliLog)
+	}
+	if *n <= 0 {
+		*n = 1
 	}
 	if idx := strings.IndexAny(link, "/?#"); idx != -1 {
 		link = link[:idx]

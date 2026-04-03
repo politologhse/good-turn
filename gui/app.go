@@ -22,7 +22,6 @@ const (
 
 type ConnectConfig struct {
 	VkLink      string `json:"vkLink"`
-	YandexLink  string `json:"yandexLink"`
 	PeerAddr    string `json:"peerAddr"`
 	HyPassword  string `json:"hyPassword"`
 	SNI         string `json:"sni"`
@@ -115,9 +114,9 @@ func (a *App) Connect(cfg ConnectConfig) error {
 		a.mu.Unlock()
 		return fmt.Errorf("server address is required")
 	}
-	if cfg.VkLink == "" && cfg.YandexLink == "" {
+	if cfg.VkLink == "" {
 		a.mu.Unlock()
-		return fmt.Errorf("VK or Yandex link is required")
+		return fmt.Errorf("VK link is required")
 	}
 	if cfg.HyPassword == "" {
 		a.mu.Unlock()
@@ -147,26 +146,16 @@ func (a *App) Connect(cfg ConnectConfig) error {
 
 func (a *App) connectAsync(cfg ConnectConfig) {
 	// Parse link
-	var link string
-	var getCreds getCredsFunc
-	if cfg.VkLink != "" {
-		parts := strings.Split(cfg.VkLink, "join/")
-		link = parts[len(parts)-1]
-		dialer := dnsdialer.New(
-			dnsdialer.WithResolvers("77.88.8.8:53", "77.88.8.1:53", "8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"),
-			dnsdialer.WithStrategy(dnsdialer.Fallback{}),
-			dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
-		)
-		getCreds = withRetry(func(s string) (string, string, string, error) {
-			return getVkCreds(s, dialer, a.log)
-		}, 3, a.log)
-	} else {
-		parts := strings.Split(cfg.YandexLink, "j/")
-		link = parts[len(parts)-1]
-		getCreds = withRetry(func(s string) (string, string, string, error) {
-			return getYandexCreds(s, a.log)
-		}, 3, a.log)
-	}
+	parts := strings.Split(cfg.VkLink, "join/")
+	link := parts[len(parts)-1]
+	dialer := dnsdialer.New(
+		dnsdialer.WithResolvers("77.88.8.8:53", "77.88.8.1:53", "8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"),
+		dnsdialer.WithStrategy(dnsdialer.Fallback{}),
+		dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
+	)
+	getCreds := withRetry(func(s string) (string, string, string, error) {
+		return getVkCreds(s, dialer, a.log)
+	}, 3, a.log)
 	if idx := strings.IndexAny(link, "/?#"); idx != -1 {
 		link = link[:idx]
 	}

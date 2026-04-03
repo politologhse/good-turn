@@ -6,7 +6,6 @@ require (
 	github.com/bschaatsbergen/dnsdialer v0.0.0-20251225104348-3e7610e8ea45
 	github.com/cbeuw/connutil v1.0.1
 	github.com/google/uuid v1.6.0
-	github.com/gorilla/websocket v1.5.3
 	github.com/pion/dtls/v3 v3.0.10
 	github.com/pion/logging v0.2.4
 	github.com/pion/turn/v5 v5.0.2
@@ -19,6 +18,7 @@ require (
 	github.com/bep/debounce v1.2.1 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jchv/go-winloader v0.0.0-20210711035445-715c2860da7e // indirect
 	github.com/labstack/echo/v4 v4.13.3 // indirect
