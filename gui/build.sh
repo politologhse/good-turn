@@ -6,7 +6,10 @@ set -e
 
 OS="${GOOS:-$(go env GOOS)}"
 ARCH="${GOARCH:-$(go env GOARCH)}"
-HY_VERSION="app/v2.6.1"  # update as needed
+
+# Read version from single source of truth
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+HY_VERSION="$(tr -d '[:space:]' < "${SCRIPT_DIR}/../.hysteria-version")"
 
 while [[ $# -gt 0 ]]; do
   case $1 in

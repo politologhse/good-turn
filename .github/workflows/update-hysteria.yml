@@ -1,0 +1,59 @@
+name: Update Hysteria2
+
+on:
+  schedule:
+    - cron: '23 8 * * *'  # daily at 08:23 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-update:
+    name: Check for Hysteria2 updates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check latest release
+        id: check
+        run: |
+          CURRENT="$(tr -d '[:space:]' < .hysteria-version)"
+          LATEST="$(curl -fsSL https://api.github.com/repos/apernet/hysteria/releases/latest | jq -r .tag_name)"
+
+          echo "current=$CURRENT" >> "$GITHUB_OUTPUT"
+          echo "latest=$LATEST" >> "$GITHUB_OUTPUT"
+
+          if [ "$CURRENT" = "$LATEST" ]; then
+            echo "up_to_date=true" >> "$GITHUB_OUTPUT"
+            echo "Already on latest: $CURRENT"
+          else
+            echo "up_to_date=false" >> "$GITHUB_OUTPUT"
+            echo "Update available: $CURRENT -> $LATEST"
+          fi
+
+      - name: Update version file
+        if: steps.check.outputs.up_to_date == 'false'
+        run: |
+          echo "${{ steps.check.outputs.latest }}" > .hysteria-version
+
+      - name: Create PR
+        if: steps.check.outputs.up_to_date == 'false'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update Hysteria2 ${{ steps.check.outputs.current }} -> ${{ steps.check.outputs.latest }}"
+          title: "Update Hysteria2 to ${{ steps.check.outputs.latest }}"
+          body: |
+            Automated update of bundled Hysteria2 version.
+
+            **Current:** `${{ steps.check.outputs.current }}`
+            **Latest:** `${{ steps.check.outputs.latest }}`
+
+            [Release notes](https://github.com/apernet/hysteria/releases/tag/${{ steps.check.outputs.latest }})
+
+            After merging, create a new tag to trigger a release build with the updated binary.
+          branch: update-hysteria
+          delete-branch: true
+          labels: dependencies

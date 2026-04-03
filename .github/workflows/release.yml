@@ -96,8 +96,6 @@ jobs:
     strategy:
       matrix:
         arch: [arm64, amd64]
-    env:
-      HY_VERSION: "app/v2.6.1"
 
     steps:
       - uses: actions/checkout@v6
@@ -111,6 +109,7 @@ jobs:
 
       - name: Download Hysteria2
         run: |
+          HY_VERSION="$(tr -d '[:space:]' < .hysteria-version)"
           curl -fSL -o /tmp/hysteria \
             "https://github.com/apernet/hysteria/releases/download/${HY_VERSION}/hysteria-darwin-${{ matrix.arch }}"
           chmod +x /tmp/hysteria
@@ -139,8 +138,6 @@ jobs:
   build-gui-windows:
     name: GUI Windows/amd64
     runs-on: windows-latest
-    env:
-      HY_VERSION: "app/v2.6.1"
 
     steps:
       - uses: actions/checkout@v6
@@ -155,7 +152,8 @@ jobs:
       - name: Download Hysteria2
         shell: pwsh
         run: |
-          Invoke-WebRequest -Uri "https://github.com/apernet/hysteria/releases/download/$env:HY_VERSION/hysteria-windows-amd64.exe" -OutFile "$env:TEMP\hysteria.exe"
+          $hyVersion = (Get-Content .hysteria-version -Raw).Trim()
+          Invoke-WebRequest -Uri "https://github.com/apernet/hysteria/releases/download/$hyVersion/hysteria-windows-amd64.exe" -OutFile "$env:TEMP\hysteria.exe"
 
       - name: Build GUI
         working-directory: gui
