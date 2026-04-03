@@ -150,15 +150,15 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 			dnsdialer.WithStrategy(dnsdialer.Fallback{}),
 			dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
 		)
-		getCreds = func(s string) (string, string, string, error) {
+		getCreds = withRetry(func(s string) (string, string, string, error) {
 			return getVkCreds(s, dialer, a.log)
-		}
+		}, 3, a.log)
 	} else {
 		parts := strings.Split(cfg.YandexLink, "j/")
 		link = parts[len(parts)-1]
-		getCreds = func(s string) (string, string, string, error) {
+		getCreds = withRetry(func(s string) (string, string, string, error) {
 			return getYandexCreds(s, a.log)
-		}
+		}, 3, a.log)
 	}
 	if idx := strings.IndexAny(link, "/?#"); idx != -1 {
 		link = link[:idx]
@@ -267,6 +267,16 @@ func (a *App) watchHysteria(ctx context.Context) {
 		}
 		a.mu.Unlock()
 	}
+}
+
+// GetMetrics returns current connection metrics (called from frontend on timer).
+func (a *App) GetMetrics() MetricsSnapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.relay != nil {
+		return a.relay.Metrics.Snapshot()
+	}
+	return MetricsSnapshot{}
 }
 
 func (a *App) Disconnect() error {

@@ -29,11 +29,12 @@ type RelayConfig struct {
 }
 
 type Relay struct {
-	cfg    RelayConfig
-	logf   logFunc
-	cancel context.CancelFunc
-	wg     sync.WaitGroup
-	ticker *time.Ticker
+	cfg     RelayConfig
+	logf    logFunc
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	ticker  *time.Ticker
+	Metrics ConnMetrics
 }
 
 func NewRelay(cfg RelayConfig, logf logFunc) *Relay {
@@ -196,6 +197,8 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 		}
 	}()
 	r.logf("DTLS connection established")
+	r.Metrics.MarkConnected()
+	r.Metrics.RecordReconnect()
 
 	// #12 fix: non-blocking send on buffered okchan
 	if okchan != nil {
@@ -228,6 +231,7 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 				return
 			}
 			addr.Store(addr1)
+			r.Metrics.RecordUp(n)
 			if _, err1 = dtlsConn.Write(buf[:n]); err1 != nil {
 				return
 			}
@@ -248,6 +252,7 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 			if err1 != nil {
 				return
 			}
+			r.Metrics.RecordDown(n)
 			addr1, ok := addr.Load().(net.Addr)
 			if !ok {
 				return

@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -22,6 +20,8 @@ import (
 func main() {
 	listen := flag.String("listen", "0.0.0.0:56000", "listen on ip:port")
 	connect := flag.String("connect", "", "connect to ip:port (e.g. 127.0.0.1:443)")
+	certFile := flag.String("cert", "", "path to DTLS certificate PEM (auto-generated if empty)")
+	keyFile := flag.String("key", "", "path to DTLS private key PEM (auto-generated if empty)")
 
 	// Config generation flags
 	genConfig := flag.Bool("generate-config", false, "generate gt:// config string and exit")
@@ -43,9 +43,7 @@ func main() {
 			fmt.Fprintf(os.Stderr, "  Password can also be set via GT_PASS env var\n")
 			os.Exit(1)
 		}
-		data := map[string]string{"a": *gcAddr, "p": pass, "s": *gcSNI}
-		b, _ := json.Marshal(data)
-		fmt.Println("gt://" + base64.StdEncoding.EncodeToString(b))
+		fmt.Println(generateConfigString(*gcAddr, pass, *gcSNI))
 		return
 	}
 
@@ -69,10 +67,23 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// Generate a certificate and private key to secure the connection
-	certificate, genErr := selfsign.GenerateSelfSigned()
-	if genErr != nil {
-		panic(genErr)
+
+	// Load or generate DTLS certificate
+	var certificate tls.Certificate
+	if *certFile != "" && *keyFile != "" {
+		cert, err := tls.LoadX509KeyPair(*certFile, *keyFile)
+		if err != nil {
+			log.Fatalf("Failed to load certificate: %s", err)
+		}
+		certificate = cert
+		log.Printf("Loaded DTLS certificate from %s", *certFile)
+	} else {
+		cert, genErr := selfsign.GenerateSelfSigned()
+		if genErr != nil {
+			panic(genErr)
+		}
+		certificate = cert
+		log.Printf("Generated ephemeral DTLS certificate")
 	}
 
 	//

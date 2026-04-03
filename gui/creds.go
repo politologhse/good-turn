@@ -19,6 +19,30 @@ type logFunc func(string)
 
 type getCredsFunc func(string) (string, string, string, error)
 
+// withRetry wraps a getCredsFunc with exponential backoff retry.
+func withRetry(f getCredsFunc, maxAttempts int, logf logFunc) getCredsFunc {
+	return func(link string) (string, string, string, error) {
+		var lastErr error
+		backoff := 2 * time.Second
+		for i := 0; i < maxAttempts; i++ {
+			user, pass, addr, err := f(link)
+			if err == nil {
+				return user, pass, addr, nil
+			}
+			lastErr = err
+			if i < maxAttempts-1 {
+				logf(fmt.Sprintf("Creds attempt %d/%d failed: %s, retrying in %s...", i+1, maxAttempts, err, backoff))
+				time.Sleep(backoff)
+				backoff *= 2
+				if backoff > 30*time.Second {
+					backoff = 30 * time.Second
+				}
+			}
+		}
+		return "", "", "", fmt.Errorf("all %d attempts failed: %w", maxAttempts, lastErr)
+	}
+}
+
 func getVkCreds(link string, dialer *dnsdialer.Dialer, logf logFunc) (string, string, string, error) {
 	doRequest := func(data string, url string) (resp map[string]interface{}, err error) {
 		client := &http.Client{
