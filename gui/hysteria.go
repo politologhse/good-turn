@@ -19,7 +19,7 @@ type HysteriaManager struct {
 }
 
 func NewHysteriaManager(logf logFunc) *HysteriaManager {
-	return &HysteriaManager{logf: logf}
+	return &HysteriaManager{logf: logf, done: make(chan struct{})}
 }
 
 func (h *HysteriaManager) FindBinary() (string, error) {
@@ -97,7 +97,7 @@ http:
 
 	ctx, cancel := context.WithCancel(parentCtx)
 	h.cancel = cancel
-	h.done = make(chan struct{})
+	h.done = make(chan struct{}) // reset for new run
 
 	cmd := exec.CommandContext(ctx, binary, "client", "-c", h.configPath)
 

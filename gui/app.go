@@ -40,6 +40,7 @@ type ConnectConfig struct {
 type StatusInfo struct {
 	State   AppState `json:"state"`
 	Message string   `json:"message"`
+	Version string   `json:"version"`
 }
 
 type App struct {
@@ -91,7 +92,7 @@ func (a *App) log(msg string) {
 func (a *App) GetStatus() StatusInfo {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	return StatusInfo{State: a.state, Message: a.message}
+	return StatusInfo{State: a.state, Message: a.message, Version: version}
 }
 
 // #2 fix: Connect runs heavy work in a goroutine so it doesn't block the UI.
