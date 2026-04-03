@@ -211,8 +211,8 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	context.AfterFunc(dtlsctx, func() {
-		listenConn.SetDeadline(time.Now())
-		dtlsConn.SetDeadline(time.Now())
+		_ = listenConn.SetDeadline(time.Now())
+		_ = dtlsConn.SetDeadline(time.Now())
 	})
 
 	var addr atomic.Value
@@ -264,8 +264,8 @@ func (r *Relay) oneDtlsConnection(ctx context.Context, peer *net.UDPAddr, listen
 	}()
 
 	wg.Wait()
-	listenConn.SetDeadline(time.Time{})
-	dtlsConn.SetDeadline(time.Time{})
+	_ = listenConn.SetDeadline(time.Time{})
+	_ = dtlsConn.SetDeadline(time.Time{})
 }
 
 func (r *Relay) oneDtlsConnectionLoop(ctx context.Context, peer *net.UDPAddr, listenConnChan <-chan net.PacketConn, connchan chan<- net.PacketConn, okchan chan<- struct{}) {
@@ -401,8 +401,8 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 	// #1 fix: use parent ctx instead of context.Background()
 	turnctx, turncancel := context.WithCancel(ctx)
 	context.AfterFunc(turnctx, func() {
-		relayConn.SetDeadline(time.Now())
-		conn2.SetDeadline(time.Now())
+		_ = relayConn.SetDeadline(time.Now())
+		_ = conn2.SetDeadline(time.Now())
 	})
 
 	var addr atomic.Value
@@ -452,8 +452,8 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 	}()
 
 	wg.Wait()
-	relayConn.SetDeadline(time.Time{})
-	conn2.SetDeadline(time.Time{})
+	_ = relayConn.SetDeadline(time.Time{})
+	_ = conn2.SetDeadline(time.Time{})
 }
 
 func (r *Relay) oneTurnConnectionLoop(ctx context.Context, tp *turnParams, peer *net.UDPAddr, connchan <-chan net.PacketConn, t <-chan time.Time) {

@@ -66,7 +66,7 @@ func NewApp() *App {
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	// #8 fix: cleanup stale proxy settings on startup
-	a.proxy.Disable()
+	_ = a.proxy.Disable()
 }
 
 func (a *App) shutdown(ctx context.Context) {

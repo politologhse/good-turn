@@ -15,23 +15,23 @@ func TestGetVkCredsParsesMockResponses(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch step {
 		case 0: // get_anonym_token
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"data": map[string]interface{}{
 					"access_token": "test_token_1",
 				},
 			})
 		case 1: // calls.getAnonymousToken
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"response": map[string]interface{}{
 					"token": "test_token_2",
 				},
 			})
 		case 2: // auth.anonymLogin
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"session_key": "test_session_key",
 			})
 		case 3: // vchat.joinConversationByLink
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"turn_server": map[string]interface{}{
 					"username":   "user123",
 					"credential": "pass456",

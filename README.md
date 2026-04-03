@@ -8,47 +8,60 @@
 
 Только для учебных целей!
 
-## Быстрый старт
+## Как это работает
 
-### 1. Сервер (VPS) — одна команда
+ТСПУ не блокирует трафик к TURN-серверам VK (иначе сломаются звонки). Good TURN оборачивает QUIC-пакеты Hysteria2 в DTLS и пересылает через VK TURN relay на ваш VPS, где они расшифровываются и передаются в Hysteria2 сервер.
 
-```bash
-curl -fsSL raw.githubusercontent.com/politologhse/good-turn/main/setup-server.sh | bash -s -- -pass мой-пароль
+```
+Клиент:                                   VPS:
+  Браузер                                   good-turn server :56000
+    → SOCKS5 :1080                            ↓ DTLS расшифровка
+    → Hysteria2 клиент                        → Hysteria2 :443
+      → QUIC/UDP → 127.0.0.1:9000              → Интернет
+        → good-turn client
+          → DTLS → VK TURN ═══UDP═══→
 ```
 
-Скрипт установит Hysteria2 + Good TURN, создаст systemd-сервисы и выведет **config string**:
+## Быстрый старт
+
+### 1. Сервер (VPS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/politologhse/good-turn/main/setup-server.sh | bash -s -- -pass мой-пароль
+```
+
+Скрипт установит Hysteria2 + Good TURN, создаст systemd-сервисы и выведет config string:
 
 ```
 gt://eyJhIjoiMTg1LjEuMi4zOjU2MDAwIiwicCI6Im15cGFzcyIsInMiOiJoeTIifQ==
 ```
 
-Сохраните эту строку — она нужна для клиента.
-
 Или вручную:
 ```bash
-./server -generate-config -addr 185.1.2.3:56000 -pass мой-пароль -sni hy2
+GT_PASS=мой-пароль ./server -generate-config -addr 185.1.2.3:56000
 ```
 
-### 2. Клиент (десктоп) — GUI приложение
+### 2. Клиент (GUI)
 
-1. Скачайте приложение + положите рядом бинарник `hysteria`
-2. Откройте приложение
-3. **Import config** → вставьте `gt://...` строку от админа
-4. Вставьте VK-ссылку (создайте звонок в VK)
-5. Нажмите кнопку ⏻
-6. Готово. SOCKS5 на `127.0.0.1:1080`, HTTP на `127.0.0.1:8080`
+1. Скачайте из [Releases](https://github.com/politologhse/good-turn/releases) для macOS или Windows
+2. Откройте, нажмите **Import config**, вставьте `gt://...` строку
+3. Вставьте VK-ссылку (создайте звонок в VK)
+4. Нажмите кнопку подключения
+5. SOCKS5 `127.0.0.1:1080`, HTTP `127.0.0.1:8080`
 
 ### 3. Клиент (CLI)
 
 ```bash
-# Запустить TURN relay
+# Терминал 1: TURN relay
 ./client -peer 185.1.2.3:56000 -vk-link https://vk.com/call/join/... -listen 127.0.0.1:9000
 
-# Запустить Hysteria2 клиент (в другом терминале)
+# Терминал 2: Hysteria2
 hysteria client -c hysteria-client.yaml
 ```
 
-`hysteria-client.yaml`:
+<details>
+<summary>hysteria-client.yaml</summary>
+
 ```yaml
 server: 127.0.0.1:9000
 auth: мой-пароль
@@ -60,57 +73,31 @@ socks5:
 http:
   listen: 127.0.0.1:8080
 ```
-
----
+</details>
 
 ## Что нужно
 
-1. **VK-ссылка** — создайте звонок в VK (нужен аккаунт). Не нажимайте "завершить для всех". Ссылка вечная.
-2. **VPS за границей** — любой, куда можно поставить Hysteria2
+- **VK-ссылка** -- создайте звонок в VK (нужен аккаунт). Не нажимайте "завершить для всех". Ссылка вечная.
+- **VPS за границей** -- любой Linux VPS.
 
 ## Установка сервера вручную
 
-Если не хотите `curl | bash`:
+<details>
+<summary>Без curl | bash</summary>
 
 ```bash
-# 1. Hysteria2
+# Hysteria2
 bash <(curl -fsSL https://get.hy2.sh/)
-
-# Самоподписанный сертификат
 openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
   -keyout /etc/hysteria/key.pem -out /etc/hysteria/cert.pem \
   -subj "/CN=hy2" -days 3650
-
-# /etc/hysteria/config.yaml
-# listen: 127.0.0.1:443
-# tls: { cert: /etc/hysteria/cert.pem, key: /etc/hysteria/key.pem }
-# auth: { type: password, password: мой-пароль }
-
+# Создайте /etc/hysteria/config.yaml (listen: 127.0.0.1:443, password, tls)
 systemctl enable --now hysteria-server
 
-# 2. Good TURN server
+# Good TURN
 ./server -listen 0.0.0.0:56000 -connect 127.0.0.1:443
-
-# 3. Сгенерировать config string
-./server -generate-config -addr <ваш-IP>:56000 -pass мой-пароль
 ```
-
-#### Docker
-
-```bash
-docker run -p 56000:56000/udp -e CONNECT_ADDR=127.0.0.1:443 good-turn
-```
-
-## Платформы
-
-| Платформа | Маршруты | Команда |
-|-----------|----------|---------|
-| Linux | `\| sudo ./routes.sh` | Добавить к команде client |
-| macOS | `\| sudo ./routes-macos.sh` | Добавить к команде client |
-| Windows | `\| ./routes.ps1` | PowerShell от админа |
-| Android | Termux | `termux-wake-lock` перед запуском |
-
-Скрипты маршрутов нужны чтобы трафик к TURN-серверам шёл напрямую.
+</details>
 
 ## Параметры
 
@@ -119,29 +106,51 @@ docker run -p 56000:56000/udp -e CONNECT_ADDR=127.0.0.1:443 good-turn
 | Флаг | По умолчанию | Описание |
 |------|-------------|----------|
 | `-listen` | `0.0.0.0:56000` | Адрес прослушивания |
-| `-connect` | — | Адрес Hysteria2 (e.g. `127.0.0.1:443`) |
-| `-generate-config` | — | Сгенерировать `gt://` строку и выйти |
-| `-addr` | — | IP:port для config string |
-| `-pass` | — | Пароль для config string |
+| `-connect` | -- | Адрес Hysteria2 (`127.0.0.1:443`) |
+| `-cert` / `-key` | -- | DTLS сертификат (авто-генерация если не указан) |
+| `-generate-config` | -- | Сгенерировать `gt://` строку и выйти |
+| `-addr` | -- | IP:port для config string |
+| `-pass` / `GT_PASS` | -- | Пароль (env var предпочтительнее) |
 | `-sni` | `hy2` | SNI для config string |
 
 ### Клиент
 
 | Флаг | По умолчанию | Описание |
 |------|-------------|----------|
-| `-peer` | — | Адрес VPS (host:port) |
-| `-vk-link` | — | VK-ссылка |
-| `-listen` | `127.0.0.1:9000` | Локальный адрес |
+| `-peer` | -- | Адрес VPS (host:port) |
+| `-vk-link` | -- | VK-ссылка |
+| `-listen` | `127.0.0.1:9000` | Локальный UDP relay |
 | `-udp` | TCP | Подключаться к TURN по UDP |
 | `-n` | `1` | Параллельные TURN-подключения |
 | `-turn` | auto | Ручной адрес TURN-сервера |
-| `-no-dtls` | — | Без DTLS обфускации |
+| `-no-dtls` | -- | Без обфускации |
 
-### Скорость
+VK ограничивает ~5 Мбит/с на TURN-подключение. `-n 4` даст до ~20 Мбит/с, но увеличит джиттер.
 
-VK ограничивает ~5 Мбит/с на TURN-подключение. `-n 4` даст до ~20 Мбит/с, но может увеличить джиттер.
+## Платформы
+
+| Платформа | Маршруты |
+|-----------|----------|
+| Linux | `./client ... \| sudo ./routes.sh` |
+| macOS | `./client ... \| sudo ./routes-macos.sh` |
+| Windows | `./client.exe ... \| ./routes.ps1` (PowerShell от админа) |
+| Android | Termux, `termux-wake-lock` перед запуском |
+
+## Сборка
+
+```bash
+# CLI
+go build ./server
+go build ./client
+
+# GUI (нужен Wails CLI)
+cd gui && wails build
+
+# Тесты
+go test ./...
+```
 
 ## Благодарности
 
-- https://github.com/KillTheCensorship/Turnel
-- https://github.com/apernet/hysteria
+- [Turnel](https://github.com/KillTheCensorship/Turnel) -- часть кода TURN relay
+- [Hysteria](https://github.com/apernet/hysteria) -- QUIC-прокси

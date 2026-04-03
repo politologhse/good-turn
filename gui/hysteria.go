@@ -86,7 +86,7 @@ http:
 	if err != nil {
 		return fmt.Errorf("create config: %w", err)
 	}
-	os.Chmod(tmpFile.Name(), 0600)
+	_ = os.Chmod(tmpFile.Name(), 0600)
 	if _, err := tmpFile.WriteString(configContent); err != nil {
 		tmpFile.Close()
 		os.Remove(tmpFile.Name())
