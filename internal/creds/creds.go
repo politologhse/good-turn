@@ -3,10 +3,12 @@ package creds
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"strings"
 	"time"
 
@@ -110,11 +112,15 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 		DialContext:         dialer.DialContext,
 	}
 
+	ua := randomUserAgent()
+	name := neturl.QueryEscape(randomName())
+	logf(fmt.Sprintf("Identity: %s", name))
+
 	// Step 1: get anonymous token
 	resp, err := doHTTPPost(
 		"client_id=6287487&token_type=messages&client_secret=QbYic1K3lEV5kTGiqlq2&version=1&app_id=6287487",
 		"https://login.vk.ru/?act=get_anonym_token",
-		defaultUserAgent, transport,
+		ua, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("VK anon token request: %w", err)
@@ -124,25 +130,59 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 		return "", "", "", fmt.Errorf("VK anon token parse: %w", err)
 	}
 
-	// Step 2: get call token
-	resp, err = doHTTPPost(
-		fmt.Sprintf("vk_join_link=https://vk.com/call/join/%s&name=123&access_token=%s", link, token1),
-		"https://api.vk.ru/method/calls.getAnonymousToken?v=5.274&client_id=6287487",
-		defaultUserAgent, transport,
-	)
-	if err != nil {
-		return "", "", "", fmt.Errorf("VK call token request: %w", err)
-	}
-	token2, err := getString(resp, "response", "token")
-	if err != nil {
-		return "", "", "", fmt.Errorf("VK call token parse: %w", err)
+	// Step 2: get call token (with captcha retry loop)
+	data := fmt.Sprintf("vk_join_link=https://vk.com/call/join/%s&name=%s&access_token=%s", link, name, token1)
+
+	const maxCaptchaAttempts = 3
+	var token2 string
+	for attempt := 0; attempt <= maxCaptchaAttempts; attempt++ {
+		resp, err = doHTTPPost(
+			data,
+			"https://api.vk.ru/method/calls.getAnonymousToken?v=5.274&client_id=6287487",
+			ua, transport,
+		)
+		if err != nil {
+			return "", "", "", fmt.Errorf("VK call token request: %w", err)
+		}
+
+		// Check for captcha
+		if errObj, hasErr := resp["error"].(map[string]interface{}); hasErr {
+			errCode, _ := errObj["error_code"].(float64)
+			if errCode == 14 {
+				if attempt == maxCaptchaAttempts {
+					return "", "", "", fmt.Errorf("captcha failed after %d attempts", maxCaptchaAttempts)
+				}
+				ce := parseVkCaptchaError(errObj)
+				if ce.SessionToken == "" {
+					return "", "", "", fmt.Errorf("image captcha not supported (no session_token)")
+				}
+				ctx := context.Background()
+				successToken, solveErr := solveVkCaptcha(ctx, ce, transport, logf)
+				if solveErr != nil {
+					return "", "", "", fmt.Errorf("captcha solve: %w", solveErr)
+				}
+				if ce.CaptchaAttempt == "0" || ce.CaptchaAttempt == "" {
+					ce.CaptchaAttempt = "1"
+				}
+				data = fmt.Sprintf("vk_join_link=https://vk.com/call/join/%s&name=%s&access_token=%s&captcha_key=&captcha_sid=%s&is_sound_captcha=0&success_token=%s&captcha_ts=%s&captcha_attempt=%s",
+					link, name, token1, ce.CaptchaSid, neturl.QueryEscape(successToken), ce.CaptchaTs, ce.CaptchaAttempt)
+				continue
+			}
+			return "", "", "", fmt.Errorf("VK API error %d: %s", int(errCode), errObj["error_msg"])
+		}
+
+		token2, err = getString(resp, "response", "token")
+		if err != nil {
+			return "", "", "", fmt.Errorf("VK call token parse: %w", err)
+		}
+		break
 	}
 
 	// Step 3: OK session
 	resp, err = doHTTPPost(
 		fmt.Sprintf("session_data=%%7B%%22version%%22%%3A2%%2C%%22device_id%%22%%3A%%22%s%%22%%2C%%22client_version%%22%%3A1.1%%2C%%22client_type%%22%%3A%%22SDK_JS%%22%%7D&method=auth.anonymLogin&format=JSON&application_key=CGMMEJLGDIHBABABA", uuid.New()),
 		"https://calls.okcdn.ru/fb.do",
-		defaultUserAgent, transport,
+		ua, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("OK session request: %w", err)
@@ -156,7 +196,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 	resp, err = doHTTPPost(
 		fmt.Sprintf("joinLink=%s&isVideo=false&protocolVersion=5&anonymToken=%s&method=vchat.joinConversationByLink&format=JSON&application_key=CGMMEJLGDIHBABABA&session_key=%s", link, token2, token3),
 		"https://calls.okcdn.ru/fb.do",
-		defaultUserAgent, transport,
+		ua, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("TURN creds request: %w", err)
