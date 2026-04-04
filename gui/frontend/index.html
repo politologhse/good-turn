@@ -8,71 +8,32 @@
 </head>
 <body>
   <div class="app" id="app">
-    <!-- Draggable title bar -->
-    <div class="titlebar" style="--wails-draggable:drag"></div>
+    <div class="titlebar"></div>
 
-    <!-- Main card -->
-    <div class="card main-card">
+    <!-- Hero zone: purple background, power button, status -->
+    <div class="hero-zone">
       <div class="logo">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
         </svg>
         <span>Good TURN</span>
       </div>
 
-      <!-- Config import hint -->
-      <div class="import-bar" id="importBar">
-        <button class="import-btn" id="importBtn" title="Import config from admin">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Import config
-        </button>
-      </div>
-
-      <!-- Inputs -->
-      <div class="fields" id="fields">
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-          </div>
-          <input type="text" id="vkLink" placeholder="VK link" autocomplete="off">
+      <button class="power-btn" id="powerBtn">
+        <div class="power-icon">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M18.36 6.64a9 9 0 11-12.73 0"/>
+            <line x1="12" y1="2" x2="12" y2="12"/>
+          </svg>
         </div>
+      </button>
+      <div class="power-label" id="powerLabel">CONNECT</div>
 
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg>
-          </div>
-          <input type="text" id="peerAddr" placeholder="Server  185.x.x.x:56000" autocomplete="off">
-        </div>
-
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          </div>
-          <input type="password" id="hyPassword" placeholder="Password" autocomplete="off">
-        </div>
-      </div>
-
-      <!-- Connect button -->
-      <div class="connect-area">
-        <button class="power-btn" id="powerBtn">
-          <div class="power-ring" id="powerRing"></div>
-          <div class="power-icon">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <path d="M18.36 6.64a9 9 0 11-12.73 0"/>
-              <line x1="12" y1="2" x2="12" y2="12"/>
-            </svg>
-          </div>
-        </button>
-        <div class="power-label" id="powerLabel">Connect</div>
-      </div>
-
-      <!-- Status -->
       <div class="status-bar" id="statusBar">
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">Disconnected</span>
       </div>
 
-      <!-- Connection info (shown when connected) -->
       <div class="conn-info" id="connInfo">
         <div class="info-item">
           <span class="info-label">SOCKS5</span>
@@ -97,8 +58,41 @@
       </div>
     </div>
 
-    <!-- Advanced -->
-    <details class="card settings-card" id="settingsCard">
+    <!-- Content zone: white background, inputs -->
+    <div class="content-zone">
+      <div class="import-bar">
+        <button class="import-btn" id="importBtn">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Import config
+        </button>
+      </div>
+
+      <div class="fields" id="fields">
+        <div class="input-group">
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <input type="text" id="vkLink" placeholder="VK call link" autocomplete="off">
+        </div>
+
+        <div class="input-group">
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg>
+          </div>
+          <input type="text" id="peerAddr" placeholder="Server address" autocomplete="off">
+        </div>
+
+        <div class="input-group">
+          <div class="input-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+          </div>
+          <input type="password" id="hyPassword" placeholder="Password" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <details class="settings-card" id="settingsCard">
       <summary>Settings</summary>
       <div class="settings-body">
         <div class="settings-row">
@@ -148,7 +142,7 @@
     </details>
 
     <!-- Log -->
-    <details class="card log-card">
+    <details class="log-card">
       <summary>Log</summary>
       <textarea id="logArea" readonly></textarea>
     </details>
@@ -157,7 +151,7 @@
     <div class="modal-overlay" id="importModal">
       <div class="modal">
         <h3>Import config</h3>
-        <p>Paste the config string from your server admin:</p>
+        <p>Paste the config string from your server admin.</p>
         <textarea id="importInput" rows="3" placeholder="gt://eyJ..."></textarea>
         <div class="modal-buttons">
           <button class="btn-secondary" id="importCancel">Cancel</button>

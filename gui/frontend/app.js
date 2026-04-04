@@ -148,8 +148,11 @@ $('importOk').addEventListener('click', () => {
   if (!raw) return;
 
   try {
-    let data = raw;
-    if (data.startsWith('gt://')) data = data.slice(5);
+    // Strip prefix, whitespace, invisible chars
+    let data = raw.replace(/^[\s\uFEFF\u200B]*/, '');
+    const gtIdx = data.indexOf('gt://');
+    if (gtIdx !== -1) data = data.slice(gtIdx + 5);
+    data = data.replace(/[\s\uFEFF\u200B]/g, '');
 
     const json = JSON.parse(atob(data));
     if (json.a) el.peerAddr.value = json.a;
@@ -161,7 +164,7 @@ $('importOk').addEventListener('click', () => {
     log('Config imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
     saveConfig();
   } catch (e) {
-    log('Invalid config string');
+    log('Invalid config string: ' + e.message);
   }
   importModal.classList.remove('visible');
 });
