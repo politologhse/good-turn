@@ -180,26 +180,41 @@ func callCaptchaNotRobot(ctx context.Context, sessionToken, hash string, transpo
 
 	baseParams := fmt.Sprintf("session_token=%s&domain=vk.com&adFp=&access_token=", neturl.QueryEscape(sessionToken))
 
-	// Step 1: settings
+	// Step 1: settings (random delay to look human)
 	if _, err := vkReq("captchaNotRobot.settings", baseParams); err != nil {
 		return "", fmt.Errorf("settings: %w", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Duration(300+rand.Intn(500)) * time.Millisecond)
 
-	// Step 2: componentDone
-	browserFp := fmt.Sprintf("%032x", rand.Int63())
-	deviceJSON := `{"screenWidth":1920,"screenHeight":1080,"screenAvailWidth":1920,"screenAvailHeight":1032,"innerWidth":1920,"innerHeight":945,"devicePixelRatio":1,"language":"en-US","languages":["en-US"],"webdriver":false,"hardwareConcurrency":16,"deviceMemory":8,"connectionEffectiveType":"4g","notificationsPermission":"denied"}`
+	// Step 2: componentDone (randomize fingerprint)
+	browserFp := fmt.Sprintf("%032x", rand.Int63()) + fmt.Sprintf("%032x", rand.Int63())
+	browserFp = browserFp[:32]
+
+	screens := [][2]int{{1920, 1080}, {1536, 864}, {1440, 900}, {1366, 768}, {2560, 1440}}
+	screen := screens[rand.Intn(len(screens))]
+	concurrency := []int{4, 8, 12, 16}[rand.Intn(4)]
+	memory := []int{4, 8, 16}[rand.Intn(3)]
+
+	deviceJSON := fmt.Sprintf(`{"screenWidth":%d,"screenHeight":%d,"screenAvailWidth":%d,"screenAvailHeight":%d,"innerWidth":%d,"innerHeight":%d,"devicePixelRatio":1,"language":"ru-RU","languages":["ru-RU","ru"],"webdriver":false,"hardwareConcurrency":%d,"deviceMemory":%d,"connectionEffectiveType":"4g","notificationsPermission":"default"}`,
+		screen[0], screen[1], screen[0], screen[1]-48, screen[0], screen[1]-135, concurrency, memory)
+
 	componentDoneData := baseParams + fmt.Sprintf("&browser_fp=%s&device=%s", browserFp, neturl.QueryEscape(deviceJSON))
 
 	if _, err := vkReq("captchaNotRobot.componentDone", componentDoneData); err != nil {
 		return "", fmt.Errorf("componentDone: %w", err)
 	}
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Duration(400+rand.Intn(800)) * time.Millisecond)
 
-	// Step 3: check
-	cursorJSON := `[{"x":950,"y":500},{"x":945,"y":510},{"x":940,"y":520},{"x":938,"y":525},{"x":938,"y":525}]`
+	// Step 3: check (randomize cursor path)
+	baseX := 900 + rand.Intn(200)
+	baseY := 450 + rand.Intn(100)
+	cursorJSON := fmt.Sprintf(`[{"x":%d,"y":%d},{"x":%d,"y":%d},{"x":%d,"y":%d},{"x":%d,"y":%d},{"x":%d,"y":%d}]`,
+		baseX, baseY, baseX-3-rand.Intn(5), baseY+8+rand.Intn(5),
+		baseX-7-rand.Intn(5), baseY+16+rand.Intn(5), baseX-10-rand.Intn(3), baseY+22+rand.Intn(5),
+		baseX-10-rand.Intn(3), baseY+22+rand.Intn(3))
 	answer := base64.StdEncoding.EncodeToString([]byte("{}"))
-	debugInfo := "d44f534ce8deb56ba20be52e05c433309b49ee4d2a70602deeb17a1954257785"
+	debugHash := sha256.Sum256([]byte(fmt.Sprintf("%d%s", time.Now().UnixNano(), browserFp)))
+	debugInfo := hex.EncodeToString(debugHash[:])
 
 	checkData := baseParams + fmt.Sprintf(
 		"&accelerometer=%s&gyroscope=%s&motion=%s&cursor=%s&taps=%s&connectionRtt=%s&connectionDownlink=%s&browser_fp=%s&hash=%s&answer=%s&debug_info=%s",

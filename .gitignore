@@ -1,1 +1,3 @@
 .DS_Store
+gui/build/
+gui/frontend/wailsjs/

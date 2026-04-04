@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bschaatsbergen/dnsdialer"
+	"github.com/politologhse/good-turn/internal/creds"
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -156,9 +157,13 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 		dnsdialer.WithStrategy(dnsdialer.Fallback{}),
 		dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
 	)
-	getCreds := withRetry(func(s string) (string, string, string, error) {
-		return getVkCreds(s, dialer, a.log)
-	}, 3, a.log)
+	// Cache creds for 5 min, cooldown 30s between API calls, retry 3x on failure
+	getCreds := creds.NewCachedCreds(
+		withRetry(func(s string) (string, string, string, error) {
+			return getVkCreds(s, dialer, a.log)
+		}, 3, a.log),
+		5*time.Minute, 30*time.Second, a.log,
+	)
 	if idx := strings.IndexAny(link, "/?#"); idx != -1 {
 		link = link[:idx]
 	}
