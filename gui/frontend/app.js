@@ -153,9 +153,12 @@ $('importOk').addEventListener('click', () => {
 
     const json = JSON.parse(atob(data));
     if (json.a) el.peerAddr.value = json.a;
-    if (json.p) el.hyPassword.value = json.p;
+    if (json.p) {
+      el.hyPassword.value = json.p;
+      try { sessionStorage.setItem('gt-pw', json.p); } catch (_) {}
+    }
     if (json.s) el.sni.value = json.s;
-    log('Config imported');
+    log('Config imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
     saveConfig();
   } catch (e) {
     log('Invalid config string');
@@ -255,6 +258,11 @@ function stopMetricsPolling() {
 
 // === Init ===
 loadConfig();
+// Restore password from sessionStorage (survives within session, not across restarts)
+try {
+  const pw = sessionStorage.getItem('gt-pw');
+  if (pw) el.hyPassword.value = pw;
+} catch (_) {}
 
 // Poll for Wails runtime readiness
 const readyCheck = setInterval(() => {
