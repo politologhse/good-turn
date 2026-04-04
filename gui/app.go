@@ -133,6 +133,9 @@ func (a *App) Connect(cfg ConnectConfig) error {
 	}
 	if cfg.SNI == "" {
 		cfg.SNI = "hy2"
+	}
+	// Self-signed certs (default SNI "hy2") need insecure mode
+	if cfg.SNI == "hy2" {
 		cfg.Insecure = true
 	}
 
