@@ -255,7 +255,6 @@ function stopMetricsPolling() {
 
 // === Init ===
 loadConfig();
-initEvents();
 
 // Poll for Wails runtime readiness
 const readyCheck = setInterval(() => {

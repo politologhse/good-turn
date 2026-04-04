@@ -26,7 +26,7 @@ type GetCredsFunc func(string) (string, string, string, error)
 func WithRetry(f GetCredsFunc, maxAttempts int, logf LogFunc) GetCredsFunc {
 	return func(link string) (string, string, string, error) {
 		var lastErr error
-		backoff := 2 * time.Second
+		backoff := 5 * time.Second
 		for i := 0; i < maxAttempts; i++ {
 			user, pass, addr, err := f(link)
 			if err == nil {
@@ -34,11 +34,11 @@ func WithRetry(f GetCredsFunc, maxAttempts int, logf LogFunc) GetCredsFunc {
 			}
 			lastErr = err
 			if i < maxAttempts-1 {
-				logf(fmt.Sprintf("Creds attempt %d/%d failed: %s, retrying in %s...", i+1, maxAttempts, err, backoff))
+				logf(fmt.Sprintf("Attempt %d/%d failed: %s, retrying in %s...", i+1, maxAttempts, err, backoff))
 				time.Sleep(backoff)
 				backoff *= 2
-				if backoff > 30*time.Second {
-					backoff = 30 * time.Second
+				if backoff > 60*time.Second {
+					backoff = 60 * time.Second
 				}
 			}
 		}

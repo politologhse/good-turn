@@ -57,7 +57,13 @@ mkdir -p /etc/hysteria
 if [ ! -f /etc/hysteria/key.pem ]; then
   openssl req -x509 -nodes -newkey ec:<(openssl ecparam -name prime256v1) \
     -keyout /etc/hysteria/key.pem -out /etc/hysteria/cert.pem \
-    -subj "/CN=${SNI}" -days 3650 2>/dev/null
+    -subj "/CN=${SNI}" -days 3650 \
+    -addext "subjectAltName=DNS:${SNI}" \
+    -addext "basicConstraints=CA:FALSE" \
+    -addext "keyUsage=digitalSignature,keyEncipherment" \
+    -addext "extendedKeyUsage=serverAuth" 2>/dev/null
+  chown root:hysteria /etc/hysteria/key.pem
+  chmod 640 /etc/hysteria/key.pem
   echo "  Generated self-signed cert"
 else
   echo "  Cert already exists"
