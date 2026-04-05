@@ -66,6 +66,7 @@ func (h *HysteriaManager) Start(parentCtx context.Context, cfg HysteriaConfig) e
 	}
 
 	// Generate config YAML
+	// ACL: RU domains/IPs go direct (no tunnel), everything else proxied
 	configContent := fmt.Sprintf(`server: %s
 
 auth: %s
@@ -79,6 +80,13 @@ socks5:
 
 http:
   listen: 127.0.0.1:%d
+
+acl:
+  inline:
+    - direct(geoip:private)
+    - direct(geosite:category-ru)
+    - direct(geoip:ru)
+    - proxy(all)
 `, cfg.ServerAddr, cfg.Password, cfg.SNI, cfg.Insecure, cfg.SocksPort, cfg.HTTPPort)
 
 	// Write temp config with restricted permissions
