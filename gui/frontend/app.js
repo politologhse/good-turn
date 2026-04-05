@@ -2,82 +2,194 @@
 const $ = id => document.getElementById(id);
 
 const el = {
-  vkLink:      $('vkLink'),
-  peerAddr:    $('peerAddr'),
-  hyPassword:  $('hyPassword'),
-  sni:         $('sni'),
-  turnMode:    $('turnMode'),
-  streams:     $('streams'),
-  socksPort:   $('socksPort'),
-  httpPort:    $('httpPort'),
-  turnHost:    $('turnHost'),
-  turnPort:    $('turnPort'),
+  vkLink: $('vkLink'),
+  peerAddr: $('peerAddr'),
+  hyPassword: $('hyPassword'),
+  sni: $('sni'),
+  turnMode: $('turnMode'),
+  streams: $('streams'),
+  socksPort: $('socksPort'),
+  httpPort: $('httpPort'),
+  turnHost: $('turnHost'),
+  turnPort: $('turnPort'),
   systemProxy: $('systemProxy'),
-  insecure:    $('insecure'),
-  noDtls:      $('noDtls'),
+  insecure: $('insecure'),
+  noDtls: $('noDtls'),
 };
 
-const powerBtn   = $('powerBtn');
-const powerLabel  = $('powerLabel');
-const statusDot   = $('statusDot');
-const statusText  = $('statusText');
-const connInfo    = $('connInfo');
-const infoSocks   = $('infoSocks');
-const infoHttp    = $('infoHttp');
-const logArea     = $('logArea');
+const powerBtn = $('powerBtn');
+const powerLabel = $('powerLabel');
+const reactorText = $('reactorText');
+const reactorMood = $('reactorMood');
+const statusBar = $('statusBar');
+const statusDot = $('statusDot');
+const statusText = $('statusText');
+const connInfo = $('connInfo');
+const infoSocks = $('infoSocks');
+const infoHttp = $('infoHttp');
+const infoUp = $('infoUp');
+const infoDown = $('infoDown');
+const infoUptime = $('infoUptime');
+const infoProfile = $('infoProfile');
+const logArea = $('logArea');
+const importBtn = $('importBtn');
 const importModal = $('importModal');
 const importInput = $('importInput');
+const importCancel = $('importCancel');
+const importOk = $('importOk');
+
+const REQUIRED_FIELDS = ['vkLink', 'peerAddr', 'hyPassword'];
+const STORAGE_KEY = 'goodturn-config';
+const SENSITIVE_FIELDS = new Set(['hyPassword']);
 
 let state = 'disconnected';
+let metricsInterval = null;
+
+function hasRequiredInputs() {
+  return REQUIRED_FIELDS.every(key => String(el[key].value || '').trim());
+}
+
+function resetMetricsDisplay() {
+  infoUp.textContent = '0 B';
+  infoDown.textContent = '0 B';
+  infoUptime.textContent = '0s';
+}
+
+function refreshStaticInfo() {
+  const sp = parseInt(el.socksPort.value, 10) || 1080;
+  const hp = parseInt(el.httpPort.value, 10) || 8080;
+  const streams = Math.max(parseInt(el.streams.value, 10) || 1, 1);
+  const mode = (el.turnMode.value || 'tcp').toUpperCase();
+
+  infoSocks.textContent = '127.0.0.1:' + sp;
+  infoHttp.textContent = '127.0.0.1:' + hp;
+  infoProfile.textContent = mode + ' · x' + streams;
+}
+
+function applyFieldState() {
+  const idle = (state === 'disconnected' || state === 'error');
+  const ready = hasRequiredInputs();
+
+  document.querySelectorAll('.field-card').forEach(card => {
+    card.classList.toggle('is-disabled', !idle);
+  });
+
+  REQUIRED_FIELDS.forEach(key => {
+    const card = el[key].closest('.field-card');
+    if (!card) return;
+    card.classList.toggle('needs-input', idle && !ready && !String(el[key].value || '').trim());
+  });
+
+  document.querySelectorAll('.input-group').forEach(group => {
+    const input = group.querySelector('input');
+    group.classList.toggle('disabled', !!input && input.disabled);
+  });
+}
+
+function updateActionAvailability() {
+  const idle = (state === 'disconnected' || state === 'error');
+  const ready = hasRequiredInputs();
+
+  powerBtn.classList.toggle('armed', idle && ready);
+  powerBtn.disabled = state === 'connecting' || (idle && !ready);
+}
+
+function getUiCopy(newState, message) {
+  const ready = hasRequiredInputs();
+
+  if (newState === 'connecting') {
+    return {
+      button: 'Warping goo',
+      status: 'Brewing portal',
+      reactor: 'The relay is wobbling into shape through VK cover traffic. Give the goo a second.',
+      mood: 'portal mood: fizzy',
+    };
+  }
+
+  if (newState === 'connected') {
+    return {
+      button: 'Portal stable',
+      status: message || 'Portal open',
+      reactor: 'The tunnel is alive, drooling neon and ready to forward traffic through the glowing ports below.',
+      mood: 'portal mood: spicy',
+    };
+  }
+
+  if (newState === 'error') {
+    return {
+      button: 'Kick again',
+      status: message || 'Portal burped',
+      reactor: message || 'The portal sneezed itself shut. Check the coordinates, key, or transport knobs and poke it again.',
+      mood: 'portal mood: grumpy',
+    };
+  }
+
+  if (ready) {
+    return {
+      button: 'Kick the portal',
+      status: 'Portal primed',
+      reactor: 'Everything is loaded. Hit the reactor and let the tunnel ooze into place.',
+      mood: 'portal mood: hungry',
+    };
+  }
+
+  return {
+    button: 'Prime portal',
+    status: 'Need coordinates',
+    reactor: 'Feed the machine a live VK call, relay address and secret key so the portal slime knows where to go.',
+    mood: 'portal mood: sleepy',
+  };
+}
 
 // === State ===
 function setState(newState, message) {
   state = newState;
+  const copy = getUiCopy(newState, message);
 
-  // Button
   powerBtn.className = 'power-btn ' + newState;
-  powerBtn.disabled = (newState === 'connecting');
-
-  const labels = {
-    disconnected: 'Connect',
-    connecting:   'Connecting...',
-    connected:    'Connected',
-    error:        'Connect',
-  };
-  powerLabel.textContent = labels[newState] || newState;
-
-  // Status dot + text
+  statusBar.className = 'status-bar ' + newState;
   statusDot.className = 'status-dot ' + newState;
-  const statusLabels = {
-    disconnected: 'Disconnected',
-    connecting:   'Establishing tunnel...',
-    connected:    message || 'Connected',
-    error:        message || 'Error',
-  };
-  statusText.textContent = statusLabels[newState] || newState;
 
-  // Connection info + metrics
+  powerLabel.textContent = copy.button;
+  statusText.textContent = copy.status;
+  reactorText.textContent = copy.reactor;
+  if (reactorMood) reactorMood.textContent = copy.mood;
+
   if (newState === 'connected') {
     connInfo.classList.add('visible');
-    const sp = parseInt(el.socksPort.value) || 1080;
-    const hp = parseInt(el.httpPort.value) || 8080;
-    infoSocks.textContent = '127.0.0.1:' + sp;
-    infoHttp.textContent = '127.0.0.1:' + hp;
+    refreshStaticInfo();
     startMetricsPolling();
   } else {
     connInfo.classList.remove('visible');
     stopMetricsPolling();
+    resetMetricsDisplay();
+    refreshStaticInfo();
   }
 
-  // Disable inputs when not idle
   const idle = (newState === 'disconnected' || newState === 'error');
-  document.querySelectorAll('.input-group').forEach(g => {
-    g.classList.toggle('disabled', !idle);
-    g.querySelector('input').disabled = !idle;
+  document.querySelectorAll('.input-group input').forEach(input => {
+    input.disabled = !idle;
   });
-  document.querySelectorAll('.sm-input, .toggle').forEach(inp => {
-    inp.disabled = !idle;
+  document.querySelectorAll('.sm-input, .toggle').forEach(input => {
+    input.disabled = !idle;
   });
+
+  applyFieldState();
+  updateActionAvailability();
+}
+
+function refreshIdleUi() {
+  refreshStaticInfo();
+  applyFieldState();
+  updateActionAvailability();
+
+  if (state === 'disconnected' || state === 'error') {
+    const copy = getUiCopy(state);
+    powerLabel.textContent = copy.button;
+    statusText.textContent = copy.status;
+    reactorText.textContent = copy.reactor;
+    if (reactorMood) reactorMood.textContent = copy.mood;
+  }
 }
 
 function log(msg) {
@@ -89,22 +201,21 @@ function log(msg) {
 // === Actions ===
 async function connect() {
   const config = {
-    vkLink:      el.vkLink.value.trim(),
-    peerAddr:    el.peerAddr.value.trim(),
-    hyPassword:  el.hyPassword.value,
-    sni:         el.sni.value.trim(),
-    turnHost:    el.turnHost.value.trim(),
-    turnPort:    el.turnPort.value.trim(),
-    udp:         el.turnMode.value === 'udp',
-    noDtls:      el.noDtls.checked,
-    streams:     parseInt(el.streams.value) || 1,
-    socksPort:   parseInt(el.socksPort.value) || 1080,
-    httpPort:    parseInt(el.httpPort.value) || 8080,
+    vkLink: el.vkLink.value.trim(),
+    peerAddr: el.peerAddr.value.trim(),
+    hyPassword: el.hyPassword.value,
+    sni: el.sni.value.trim(),
+    turnHost: el.turnHost.value.trim(),
+    turnPort: el.turnPort.value.trim(),
+    udp: el.turnMode.value === 'udp',
+    noDtls: el.noDtls.checked,
+    streams: parseInt(el.streams.value, 10) || 1,
+    socksPort: parseInt(el.socksPort.value, 10) || 1080,
+    httpPort: parseInt(el.httpPort.value, 10) || 8080,
     systemProxy: el.systemProxy.checked,
-    insecure:    el.insecure.checked,
+    insecure: el.insecure.checked,
   };
 
-  // Basic validation
   if (!config.peerAddr) { log('Enter server address'); return; }
   if (!config.vkLink) { log('Enter VK link'); return; }
   if (!config.hyPassword) { log('Enter password'); return; }
@@ -128,27 +239,26 @@ async function disconnect() {
 
 powerBtn.addEventListener('click', () => {
   if (state === 'connected') disconnect();
-  else if (state !== 'connecting') connect();
+  else if (state !== 'connecting' && hasRequiredInputs()) connect();
 });
 
 // === Config string import ===
 // Format: gt://base64({"a":"addr","p":"pass","s":"sni"})
-$('importBtn').addEventListener('click', () => {
+importBtn.addEventListener('click', () => {
   importInput.value = '';
   importModal.classList.add('visible');
   importInput.focus();
 });
 
-$('importCancel').addEventListener('click', () => {
+importCancel.addEventListener('click', () => {
   importModal.classList.remove('visible');
 });
 
-$('importOk').addEventListener('click', () => {
+importOk.addEventListener('click', () => {
   const raw = importInput.value.trim();
   if (!raw) return;
 
   try {
-    // Strip prefix, whitespace, invisible chars
     let data = raw.replace(/^[\s\uFEFF\u200B]*/, '');
     const gtIdx = data.indexOf('gt://');
     if (gtIdx !== -1) data = data.slice(gtIdx + 5);
@@ -163,28 +273,24 @@ $('importOk').addEventListener('click', () => {
     if (json.s) el.sni.value = json.s;
     log('Config imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
     saveConfig();
+    refreshIdleUi();
   } catch (e) {
     log('Invalid config string: ' + e.message);
   }
+
   importModal.classList.remove('visible');
 });
 
-// Close modal on overlay click
-importModal.addEventListener('click', (e) => {
-  if (e.target === importModal) importModal.classList.remove('visible');
+importModal.addEventListener('click', event => {
+  if (event.target === importModal) importModal.classList.remove('visible');
 });
 
 // === Persist config ===
-const STORAGE_KEY = 'goodturn-config';
-
-// #6 fix: never persist password to disk
-const SENSITIVE_FIELDS = new Set(['hyPassword']);
-
 function saveConfig() {
   const data = {};
-  for (const [k, inp] of Object.entries(el)) {
-    if (SENSITIVE_FIELDS.has(k)) continue;
-    data[k] = inp.type === 'checkbox' ? inp.checked : inp.value;
+  for (const [key, input] of Object.entries(el)) {
+    if (SENSITIVE_FIELDS.has(key)) continue;
+    data[key] = input.type === 'checkbox' ? input.checked : input.value;
   }
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
 }
@@ -193,39 +299,44 @@ function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
+
     const data = JSON.parse(raw);
-    for (const [k, inp] of Object.entries(el)) {
-      if (k in data) {
-        if (inp.type === 'checkbox') inp.checked = data[k];
-        else inp.value = data[k];
-      }
+    for (const [key, input] of Object.entries(el)) {
+      if (!(key in data)) continue;
+      if (input.type === 'checkbox') input.checked = data[key];
+      else input.value = data[key];
     }
   } catch (_) {}
 }
 
-// Auto-save
-for (const inp of Object.values(el)) {
-  inp.addEventListener('change', saveConfig);
-  inp.addEventListener('input', saveConfig);
+for (const input of Object.values(el)) {
+  const handler = () => {
+    saveConfig();
+    refreshIdleUi();
+  };
+  input.addEventListener('change', handler);
+  input.addEventListener('input', handler);
 }
 
 // === Wails events ===
 function initEvents() {
   if (!window.runtime) return;
-  window.runtime.EventsOn('state-change', (data) => {
+
+  window.runtime.EventsOn('state-change', data => {
     setState(data.state, data.message);
   });
-  window.runtime.EventsOn('log', (msg) => {
+
+  window.runtime.EventsOn('log', msg => {
     log(msg);
   });
 }
 
 // === Metrics polling ===
-function formatBytes(b) {
-  if (b < 1024) return b + ' B';
-  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
-  if (b < 1073741824) return (b / 1048576).toFixed(1) + ' MB';
-  return (b / 1073741824).toFixed(2) + ' GB';
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+  return (bytes / 1073741824).toFixed(2) + ' GB';
 }
 
 function formatDuration(sec) {
@@ -234,46 +345,44 @@ function formatDuration(sec) {
   return Math.floor(sec / 3600) + 'h ' + Math.floor((sec % 3600) / 60) + 'm';
 }
 
-let metricsInterval = null;
-
 function startMetricsPolling() {
   if (metricsInterval) return;
+
   metricsInterval = setInterval(async () => {
     if (!window.go || !window.go.main || !window.go.main.App) return;
+
     try {
-      const m = await window.go.main.App.GetMetrics();
-      const up = document.getElementById('infoUp');
-      const down = document.getElementById('infoDown');
-      const uptime = document.getElementById('infoUptime');
-      if (up) up.textContent = formatBytes(m.bytesUp);
-      if (down) down.textContent = formatBytes(m.bytesDown);
-      if (uptime) uptime.textContent = formatDuration(m.uptimeSec);
+      const metrics = await window.go.main.App.GetMetrics();
+      infoUp.textContent = formatBytes(metrics.bytesUp);
+      infoDown.textContent = formatBytes(metrics.bytesDown);
+      infoUptime.textContent = formatDuration(metrics.uptimeSec);
     } catch (_) {}
   }, 1000);
 }
 
 function stopMetricsPolling() {
-  if (metricsInterval) {
-    clearInterval(metricsInterval);
-    metricsInterval = null;
-  }
+  if (!metricsInterval) return;
+  clearInterval(metricsInterval);
+  metricsInterval = null;
 }
 
 // === Init ===
 loadConfig();
-// Restore password from sessionStorage (survives within session, not across restarts)
 try {
   const pw = sessionStorage.getItem('gt-pw');
   if (pw) el.hyPassword.value = pw;
 } catch (_) {}
 
-// Poll for Wails runtime readiness
+refreshStaticInfo();
+resetMetricsDisplay();
+setState('disconnected');
+
 const readyCheck = setInterval(() => {
-  if (window.go && window.go.main && window.go.main.App) {
-    clearInterval(readyCheck);
-    initEvents();
-    window.go.main.App.GetStatus().then(info => {
-      setState(info.state, info.message);
-    });
-  }
+  if (!window.go || !window.go.main || !window.go.main.App) return;
+
+  clearInterval(readyCheck);
+  initEvents();
+  window.go.main.App.GetStatus().then(info => {
+    setState(info.state, info.message);
+  });
 }, 100);

@@ -8,154 +8,282 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="titlebar"></div>
+    <div class="bg-goop bg-goop--one" aria-hidden="true"></div>
+    <div class="bg-goop bg-goop--two" aria-hidden="true"></div>
+    <div class="bg-goop bg-goop--three" aria-hidden="true"></div>
 
-    <!-- Hero zone: purple background, power button, status -->
-    <div class="hero-zone">
-      <div class="logo">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-        </svg>
-        <span>Good TURN</span>
-      </div>
-
-      <button class="power-btn" id="powerBtn">
-        <div class="power-icon">
-          <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-            <path d="M18.36 6.64a9 9 0 11-12.73 0"/>
-            <line x1="12" y1="2" x2="12" y2="12"/>
-          </svg>
-        </div>
-      </button>
-      <div class="power-label" id="powerLabel">CONNECT</div>
-
-      <div class="status-bar" id="statusBar">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText">Disconnected</span>
-      </div>
-
-      <div class="conn-info" id="connInfo">
-        <div class="info-item">
-          <span class="info-label">SOCKS5</span>
-          <span class="info-value" id="infoSocks">127.0.0.1:1080</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">HTTP</span>
-          <span class="info-value" id="infoHttp">127.0.0.1:8080</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">UP</span>
-          <span class="info-value" id="infoUp">0 B</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">DOWN</span>
-          <span class="info-value" id="infoDown">0 B</span>
-        </div>
-        <div class="info-item">
-          <span class="info-label">UPTIME</span>
-          <span class="info-value" id="infoUptime">0s</span>
+    <div class="titlebar">
+      <div class="titlebar-strip">
+        <span class="frame-badge">VK RELAY LAB</span>
+        <div class="frame-lights" aria-hidden="true">
+          <span></span>
+          <span></span>
+          <span></span>
         </div>
       </div>
     </div>
 
-    <!-- Content zone: white background, inputs -->
-    <div class="content-zone">
-      <div class="import-bar">
-        <button class="import-btn" id="importBtn">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Import config
-        </button>
-      </div>
-
-      <div class="fields" id="fields">
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+    <div class="app-frame">
+      <header class="console-header panel">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <path d="M32 7C18.4 7 7 18.4 7 32s11.4 25 25 25 25-11.4 25-25S45.6 7 32 7z" stroke="currentColor" stroke-width="2.5"/>
+              <path d="M18 30c3-8 12-14 24-11 7 1.8 8 9 5 14-3.5 6-10.5 11-21 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+              <path d="M19 42c2.4-1.8 4.8-2.5 7.2-2.2 1.7.3 3.2 1.1 4.6 2.3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="43" cy="22" r="3" fill="currentColor"/>
+              <circle cx="23" cy="24" r="2.5" fill="currentColor"/>
+            </svg>
           </div>
-          <input type="text" id="vkLink" placeholder="VK call link" autocomplete="off">
+          <div class="brand-copy">
+            <p class="section-tag">Portal Relay Console</p>
+            <h1>Good TURN</h1>
+            <p class="brand-subtitle">Безумная мультяшная консоль для маскировки трафика под VK-звонок и проброса его через relay-портал.</p>
+            <div class="brand-stickers" aria-hidden="true">
+              <span class="sticker sticker--pink">totally normal</span>
+              <span class="sticker sticker--yellow">slime calibrated</span>
+            </div>
+          </div>
         </div>
 
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><circle cx="6" cy="6" r="1" fill="currentColor"/><circle cx="6" cy="18" r="1" fill="currentColor"/></svg>
+        <div class="header-tools">
+          <div class="status-bar" id="statusBar">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Coordinates needed</span>
           </div>
-          <input type="text" id="peerAddr" placeholder="Server address" autocomplete="off">
-        </div>
 
-        <div class="input-group">
-          <div class="input-icon">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
-          </div>
-          <input type="password" id="hyPassword" placeholder="Password" autocomplete="off">
+          <button class="import-btn" id="importBtn" type="button">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Import config capsule
+          </button>
         </div>
-      </div>
+      </header>
+
+      <main class="console-body">
+        <section class="reactor-card panel">
+          <div class="reactor-splat reactor-splat--left" aria-hidden="true"></div>
+          <div class="reactor-splat reactor-splat--right" aria-hidden="true"></div>
+
+          <div class="reactor-shell">
+            <div class="reactor-core">
+              <div class="reactor-rings" aria-hidden="true"></div>
+              <button class="power-btn" id="powerBtn" type="button" aria-label="Toggle connection">
+                <div class="power-btn__core">
+                  <div class="power-icon">
+                    <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round">
+                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                      <line x1="12" y1="2" x2="12" y2="12"/>
+                    </svg>
+                  </div>
+                </div>
+              </button>
+              <div class="power-label" id="powerLabel">Prime console</div>
+              <div class="reactor-badges" aria-hidden="true">
+                <span class="sticker sticker--green">chaos ready</span>
+                <span class="sticker sticker--blue" id="reactorMood">portal mood: sleepy</span>
+              </div>
+            </div>
+
+            <div class="reactor-copy">
+              <p class="section-tag">Reactor Core</p>
+              <h2>Ignition sequence</h2>
+              <p class="reactor-text" id="reactorText">Load a live VK call, relay address, and auth key to arm the console.</p>
+            </div>
+          </div>
+
+          <div class="conn-info" id="connInfo">
+            <div class="info-item metric-card">
+              <span class="info-label">SOCKS5</span>
+              <span class="info-value" id="infoSocks">127.0.0.1:1080</span>
+            </div>
+            <div class="info-item metric-card">
+              <span class="info-label">HTTP</span>
+              <span class="info-value" id="infoHttp">127.0.0.1:8080</span>
+            </div>
+            <div class="info-item metric-card">
+              <span class="info-label">UPLINK</span>
+              <span class="info-value" id="infoUp">0 B</span>
+            </div>
+            <div class="info-item metric-card">
+              <span class="info-label">DOWNLINK</span>
+              <span class="info-value" id="infoDown">0 B</span>
+            </div>
+            <div class="info-item metric-card">
+              <span class="info-label">UPTIME</span>
+              <span class="info-value" id="infoUptime">0s</span>
+            </div>
+            <div class="info-item metric-card">
+              <span class="info-label">PROFILE</span>
+              <span class="info-value" id="infoProfile">TCP · x1</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="control-card panel" id="controlCard">
+          <div class="panel-head">
+            <div>
+              <p class="section-tag">Coordinates</p>
+              <h2 class="panel-title">Feed the machine</h2>
+              <p class="panel-note">Три ингредиента: живая VK-ссылка, адрес relay и секретный ключ.</p>
+            </div>
+
+            <label class="proxy-toggle" for="systemProxy">
+              <span>System proxy</span>
+              <input type="checkbox" id="systemProxy" class="toggle">
+            </label>
+          </div>
+
+          <div class="fields" id="fields">
+            <label class="field-card" for="vkLink">
+              <span class="field-copy">
+                <span class="field-kicker">Camouflage signal</span>
+                <span class="field-label">VK call link</span>
+              </span>
+              <div class="input-group">
+                <div class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                </div>
+                <input type="text" id="vkLink" placeholder="https://vk.com/call/join/..." autocomplete="off">
+              </div>
+            </label>
+
+            <label class="field-card" for="peerAddr">
+              <span class="field-copy">
+                <span class="field-kicker">Relay target</span>
+                <span class="field-label">Server address</span>
+              </span>
+              <div class="input-group">
+                <div class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="7" rx="2"/>
+                    <rect x="2" y="14" width="20" height="7" rx="2"/>
+                    <circle cx="6" cy="6.5" r="1" fill="currentColor"/>
+                    <circle cx="6" cy="17.5" r="1" fill="currentColor"/>
+                  </svg>
+                </div>
+                <input type="text" id="peerAddr" placeholder="185.1.2.3:56000" autocomplete="off">
+              </div>
+            </label>
+
+            <label class="field-card" for="hyPassword">
+              <span class="field-copy">
+                <span class="field-kicker">Auth key</span>
+                <span class="field-label">Password</span>
+              </span>
+              <div class="input-group">
+                <div class="input-icon">
+                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+                  </svg>
+                </div>
+                <input type="password" id="hyPassword" placeholder="Relay password" autocomplete="off">
+              </div>
+            </label>
+          </div>
+        </section>
+
+        <details class="settings-card panel" id="settingsCard">
+          <summary>
+            <div class="summary-copy">
+              <span class="section-tag">Lab Controls</span>
+              <span class="summary-title">Chaotic knobs, pipes and safety-ish switches</span>
+            </div>
+          </summary>
+
+          <div class="settings-body">
+            <section class="settings-cluster">
+              <h3>Transport</h3>
+              <div class="settings-row">
+                <label for="turnMode">TURN mode</label>
+                <select id="turnMode" class="sm-input">
+                  <option value="tcp">TCP</option>
+                  <option value="udp">UDP</option>
+                </select>
+              </div>
+              <div class="settings-row">
+                <label for="streams">Streams</label>
+                <input type="number" id="streams" value="1" min="1" max="32" class="sm-input">
+              </div>
+              <div class="settings-row">
+                <label for="sni">SNI</label>
+                <input type="text" id="sni" placeholder="auto" class="sm-input">
+              </div>
+            </section>
+
+            <section class="settings-cluster">
+              <h3>Ports</h3>
+              <div class="settings-row">
+                <label for="socksPort">SOCKS5 port</label>
+                <input type="number" id="socksPort" value="1080" class="sm-input">
+              </div>
+              <div class="settings-row">
+                <label for="httpPort">HTTP port</label>
+                <input type="number" id="httpPort" value="8080" class="sm-input">
+              </div>
+            </section>
+
+            <section class="settings-cluster">
+              <h3>Overrides</h3>
+              <div class="settings-row">
+                <label for="turnHost">TURN host</label>
+                <input type="text" id="turnHost" placeholder="auto" class="sm-input">
+              </div>
+              <div class="settings-row">
+                <label for="turnPort">TURN port</label>
+                <input type="text" id="turnPort" placeholder="auto" class="sm-input">
+              </div>
+            </section>
+
+            <section class="settings-cluster">
+              <h3>Security</h3>
+              <div class="settings-row settings-row--toggle">
+                <label for="insecure">Skip TLS verify</label>
+                <input type="checkbox" id="insecure" class="toggle">
+              </div>
+              <div class="settings-row settings-row--toggle">
+                <label for="noDtls">No DTLS</label>
+                <input type="checkbox" id="noDtls" class="toggle">
+              </div>
+            </section>
+          </div>
+        </details>
+
+        <details class="log-card panel">
+          <summary>
+            <div class="summary-copy">
+              <span class="section-tag">Signal Trace</span>
+              <span class="summary-title">Runtime gossip, hisses and relay squeaks</span>
+            </div>
+          </summary>
+
+          <div class="log-body">
+            <div class="log-legend" aria-hidden="true">
+              <span class="legend-pill">INFO</span>
+              <span class="legend-pill legend-pill--warn">WARN</span>
+              <span class="legend-pill legend-pill--error">ERROR</span>
+            </div>
+            <textarea id="logArea" readonly></textarea>
+          </div>
+        </details>
+      </main>
     </div>
 
-    <!-- Settings -->
-    <details class="settings-card" id="settingsCard">
-      <summary>Settings</summary>
-      <div class="settings-body">
-        <div class="settings-row">
-          <label>SNI</label>
-          <input type="text" id="sni" placeholder="auto" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>TURN</label>
-          <select id="turnMode" class="sm-input">
-            <option value="tcp">TCP</option>
-            <option value="udp">UDP</option>
-          </select>
-        </div>
-        <div class="settings-row">
-          <label>Streams</label>
-          <input type="number" id="streams" value="1" min="1" max="32" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>SOCKS5 port</label>
-          <input type="number" id="socksPort" value="1080" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>HTTP port</label>
-          <input type="number" id="httpPort" value="8080" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>TURN IP</label>
-          <input type="text" id="turnHost" placeholder="auto" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>TURN port</label>
-          <input type="text" id="turnPort" placeholder="auto" class="sm-input">
-        </div>
-        <div class="settings-row">
-          <label>System proxy</label>
-          <input type="checkbox" id="systemProxy" class="toggle">
-        </div>
-        <div class="settings-row">
-          <label>Skip TLS verify</label>
-          <input type="checkbox" id="insecure" class="toggle">
-        </div>
-        <div class="settings-row">
-          <label>No DTLS</label>
-          <input type="checkbox" id="noDtls" class="toggle">
-        </div>
-      </div>
-    </details>
-
-    <!-- Log -->
-    <details class="log-card">
-      <summary>Log</summary>
-      <textarea id="logArea" readonly></textarea>
-    </details>
-
-    <!-- Import modal -->
     <div class="modal-overlay" id="importModal">
       <div class="modal">
-        <h3>Import config</h3>
-        <p>Paste the config string from your server admin.</p>
-        <textarea id="importInput" rows="3" placeholder="gt://eyJ..."></textarea>
+        <p class="section-tag">Import Capsule</p>
+        <h3>Load relay config</h3>
+        <p>Paste the `gt://...` capsule from the server and the console will squeeze out the relay coordinates for you.</p>
+        <textarea id="importInput" rows="4" placeholder="gt://eyJ..."></textarea>
         <div class="modal-buttons">
-          <button class="btn-secondary" id="importCancel">Cancel</button>
-          <button class="btn-primary" id="importOk">Import</button>
+          <button class="btn-secondary" id="importCancel" type="button">Cancel</button>
+          <button class="btn-primary" id="importOk" type="button">Import</button>
         </div>
       </div>
     </div>
