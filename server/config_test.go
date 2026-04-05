@@ -5,65 +5,53 @@ import (
 )
 
 func TestGenerateAndParseConfigString(t *testing.T) {
-	addr := "185.1.2.3:56000"
-	pass := "mypassword"
-	sni := "hy2"
-
-	cs := generateConfigString(addr, pass, sni)
-
-	// Must start with gt://
+	cs := generateConfigString("185.1.2.3:56000", "mypassword", "hy2")
 	if cs[:5] != "gt://" {
-		t.Fatalf("config string must start with gt://, got %q", cs[:5])
+		t.Fatalf("prefix: got %q", cs[:5])
 	}
 
-	// Parse back
-	data, err := parseConfigString(cs)
+	p, err := parseConfigString(cs)
 	if err != nil {
-		t.Fatalf("parseConfigString: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
-	if data.Addr != addr {
-		t.Errorf("addr: got %q, want %q", data.Addr, addr)
+	if p.Addr != "185.1.2.3:56000" {
+		t.Errorf("addr: %q", p.Addr)
 	}
-	if data.Pass != pass {
-		t.Errorf("pass: got %q, want %q", data.Pass, pass)
+	if p.Password != "mypassword" {
+		t.Errorf("pass: %q", p.Password)
 	}
-	if data.SNI != sni {
-		t.Errorf("sni: got %q, want %q", data.SNI, sni)
+	if p.SNI != "hy2" {
+		t.Errorf("sni: %q", p.SNI)
 	}
 }
 
 func TestParseConfigStringWithoutPrefix(t *testing.T) {
 	cs := generateConfigString("1.2.3.4:443", "test", "example.com")
-	raw := cs[5:] // strip gt://
-
-	data, err := parseConfigString(raw)
+	p, err := parseConfigString(cs[5:]) // strip gt://
 	if err != nil {
-		t.Fatalf("parse without prefix: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
-	if data.Addr != "1.2.3.4:443" {
-		t.Errorf("addr: got %q", data.Addr)
+	if p.Addr != "1.2.3.4:443" {
+		t.Errorf("addr: %q", p.Addr)
 	}
 }
 
 func TestParseConfigStringInvalid(t *testing.T) {
-	_, err := parseConfigString("not-base64!!!")
-	if err == nil {
-		t.Error("expected error for invalid base64")
+	if _, err := parseConfigString("not-base64!!!"); err == nil {
+		t.Error("expected error for garbage")
 	}
-
-	_, err = parseConfigString("gt://bm90LWpzb24=") // "not-json"
-	if err == nil {
+	if _, err := parseConfigString("gt://bm90LWpzb24="); err == nil {
 		t.Error("expected error for invalid JSON")
 	}
 }
 
 func TestConfigStringUnicodePassword(t *testing.T) {
 	cs := generateConfigString("10.0.0.1:56000", "пароль-с-юникодом", "hy2")
-	data, err := parseConfigString(cs)
+	p, err := parseConfigString(cs)
 	if err != nil {
-		t.Fatalf("parse unicode: %v", err)
+		t.Fatalf("parse: %v", err)
 	}
-	if data.Pass != "пароль-с-юникодом" {
-		t.Errorf("unicode pass: got %q", data.Pass)
+	if p.Password != "пароль-с-юникодом" {
+		t.Errorf("pass: %q", p.Password)
 	}
 }

@@ -17,6 +17,25 @@ import (
 	"time"
 )
 
+// CaptchaErrorKind classifies captcha failures for the caller.
+type CaptchaErrorKind int
+
+const (
+	CaptchaAutoFailed   CaptchaErrorKind = iota // Auto solver returned BOT/ERROR_LIMIT
+	CaptchaManualNeeded                         // Auto failed, manual verification possible
+	CaptchaUnsupported                          // Image captcha or unknown type
+	CaptchaNetworkError                         // Network failure during captcha
+)
+
+// CaptchaError carries classification and redirect URI for manual fallback.
+type CaptchaError struct {
+	Kind        CaptchaErrorKind
+	Message     string
+	RedirectURI string // For manual flow — user opens this in browser
+}
+
+func (e *CaptchaError) Error() string { return e.Message }
+
 type vkCaptchaError struct {
 	ErrorCode      int
 	ErrorMsg       string
@@ -74,23 +93,37 @@ func parseVkCaptchaError(errData map[string]interface{}) *vkCaptchaError {
 func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, transport http.RoundTripper, logf LogFunc) (string, error) {
 	logf("Solving VK PoW captcha...")
 	if ce.SessionToken == "" {
-		return "", fmt.Errorf("no session_token in redirect_uri")
+		return "", &CaptchaError{
+			Kind:    CaptchaUnsupported,
+			Message: "no session_token — image captcha not supported",
+		}
 	}
 
 	powInput, difficulty, err := fetchPowInput(ctx, ce.RedirectURI, transport)
 	if err != nil {
-		return "", fmt.Errorf("fetch PoW: %w", err)
+		return "", &CaptchaError{
+			Kind:    CaptchaNetworkError,
+			Message: fmt.Sprintf("fetch PoW: %s", err),
+		}
 	}
 
 	logf(fmt.Sprintf("PoW difficulty=%d, computing...", difficulty))
 	hash := solvePoW(powInput, difficulty)
 	if hash == "" {
-		return "", fmt.Errorf("PoW solve failed (exhausted nonce space)")
+		return "", &CaptchaError{
+			Kind:    CaptchaAutoFailed,
+			Message: "PoW exhausted nonce space",
+		}
 	}
 
 	successToken, err := callCaptchaNotRobot(ctx, ce.SessionToken, hash, transport)
 	if err != nil {
-		return "", fmt.Errorf("captchaNotRobot: %w", err)
+		// BOT or ERROR_LIMIT — manual fallback possible
+		return "", &CaptchaError{
+			Kind:        CaptchaManualNeeded,
+			Message:     fmt.Sprintf("captcha auto-solve failed: %s", err),
+			RedirectURI: ce.RedirectURI,
+		}
 	}
 
 	logf("VK captcha solved")
@@ -149,13 +182,14 @@ func solvePoW(powInput string, difficulty int) string {
 }
 
 func callCaptchaNotRobot(ctx context.Context, sessionToken, hash string, transport http.RoundTripper) (string, error) {
+	bp := RandomProfile()
 	vkReq := func(method, postData string) (map[string]interface{}, error) {
 		reqURL := "https://api.vk.ru/method/" + method + "?v=5.131"
 		req, err := http.NewRequestWithContext(ctx, "POST", reqURL, strings.NewReader(postData))
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("User-Agent", randomUserAgent())
+		bp.ApplyHeaders(req)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Set("Origin", "https://vk.ru")
 		req.Header.Set("Referer", "https://vk.ru/")

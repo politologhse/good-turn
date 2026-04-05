@@ -9,6 +9,7 @@ import (
 
 	"github.com/bschaatsbergen/dnsdialer"
 	"github.com/politologhse/good-turn/internal/creds"
+	"github.com/politologhse/good-turn/internal/profile"
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -93,6 +94,23 @@ func (a *App) log(msg string) {
 	if a.wailsReady {
 		wailsrt.EventsEmit(a.ctx, "log", msg)
 	}
+}
+
+// ImportProfile parses a gt:// string and returns the profile fields.
+// Called from frontend instead of parsing in JavaScript.
+func (a *App) ImportProfile(raw string) (map[string]string, error) {
+	p, err := profile.Parse(raw)
+	if err != nil {
+		return nil, fmt.Errorf("invalid profile: %w", err)
+	}
+	if err := p.Validate(); err != nil {
+		return nil, fmt.Errorf("profile validation: %w", err)
+	}
+	return map[string]string{
+		"addr":     p.Addr,
+		"password": p.Password,
+		"sni":      p.SNIOrDefault(),
+	}, nil
 }
 
 func (a *App) GetStatus() StatusInfo {
@@ -182,7 +200,8 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 
 	listenAddr := "127.0.0.1:9000"
 
-	// 1. Start relay
+	// [1/4] Start relay (TURN + DTLS)
+	a.log("[1/4] Starting TURN relay...")
 	relay := NewRelay(RelayConfig{
 		PeerAddr:   cfg.PeerAddr,
 		ListenAddr: listenAddr,
@@ -207,7 +226,8 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 	a.relay = relay
 	a.mu.Unlock()
 
-	// 2. Start Hysteria2
+	// [2/4] Start Hysteria2
+	a.log("[2/4] Starting Hysteria2...")
 	hysteria := NewHysteriaManager(a.log)
 	if err := hysteria.Start(ctx, HysteriaConfig{
 		ServerAddr: listenAddr,
@@ -228,8 +248,9 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 	a.hysteria = hysteria
 	a.mu.Unlock()
 
-	// 3. Enable system proxy
+	// [3/4] Enable system proxy
 	if cfg.SystemProxy {
+		a.log("[3/4] Enabling system proxy...")
 		if err := a.proxy.Enable(cfg.SocksPort); err != nil {
 			a.log(fmt.Sprintf("System proxy failed: %s", err))
 		} else {
@@ -240,11 +261,13 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 		}
 	}
 
+	// [4/4] Connected
+	a.log("[4/4] Connection established")
 	a.mu.Lock()
 	a.setState(StateConnected, fmt.Sprintf("SOCKS5 :%d | HTTP :%d", cfg.SocksPort, cfg.HTTPPort))
 	a.mu.Unlock()
 
-	// #4 fix: watch for Hysteria2 crash and propagate to UI
+	// Watch for Hysteria2 crash and propagate to UI
 	go a.watchHysteria(ctx)
 }
 
@@ -281,6 +304,11 @@ func (a *App) GetMetrics() MetricsSnapshot {
 		return a.relay.Metrics.Snapshot()
 	}
 	return MetricsSnapshot{}
+}
+
+// CaptchaCompleted is called from frontend after user manually verified captcha.
+func (a *App) CaptchaCompleted() {
+	a.log("Manual captcha verification acknowledged")
 }
 
 func (a *App) Disconnect() error {

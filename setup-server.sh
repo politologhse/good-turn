@@ -102,9 +102,13 @@ case "$ARCH" in
   *) echo -e "${RED}Unsupported arch: $ARCH${NC}"; exit 1;;
 esac
 
-# Build from source if Go is available, otherwise download
-if command -v go &>/dev/null; then
-  echo "  Building from source..."
+# Try downloading pre-built binary from GitHub Releases
+RELEASE_URL="https://github.com/politologhse/good-turn/releases/latest/download/server-linux-${GOARCH}"
+if curl -fSL -o /usr/local/bin/good-turn-server "$RELEASE_URL" 2>/dev/null; then
+  chmod +x /usr/local/bin/good-turn-server
+  echo "  Downloaded from GitHub Releases"
+elif command -v go &>/dev/null; then
+  echo "  Download failed, building from source..."
   TMP=$(mktemp -d)
   cd "$TMP"
   git clone --depth 1 https://github.com/politologhse/good-turn.git 2>/dev/null
@@ -113,8 +117,9 @@ if command -v go &>/dev/null; then
   cd /
   rm -rf "$TMP"
 else
-  echo "  Go not found. Install Go or build the binary manually."
-  echo "  Place the binary at /usr/local/bin/good-turn-server"
+  echo -e "${RED}Cannot download binary or build from source (Go not installed)${NC}"
+  echo "  Install Go or download the binary manually from:"
+  echo "  https://github.com/politologhse/good-turn/releases"
   exit 1
 fi
 

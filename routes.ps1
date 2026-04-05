@@ -1,27 +1,40 @@
-# Получаем default gateway (IPv4)
+# Good TURN — route helper for Windows
+# Adds static routes to TURN server IPs via the default gateway.
+# Safe to re-run — checks for existing routes.
+
 $gateway = Get-NetRoute `
     -DestinationPrefix "0.0.0.0/0" `
     | Sort-Object RouteMetric `
     | Select-Object -First 1 -ExpandProperty NextHop
 
 if (-not $gateway) {
-    Write-Error "Не удалось определить default gateway"
+    Write-Error "Cannot detect default gateway"
     exit 1
 }
 
 Write-Host "Default gateway: $gateway"
 
-# Читаем адреса из stdin
 $input | ForEach-Object {
     $addr = $_.Trim()
     if ($addr -eq "") { return }
 
-    Write-Host "Добавляем маршрут к $addr через $gateway"
+    $dest = "$addr/32"
+    $existing = Get-NetRoute -DestinationPrefix $dest -ErrorAction SilentlyContinue
 
+    if ($existing | Where-Object { $_.NextHop -eq $gateway }) {
+        Write-Host "Route exists: $addr via $gateway"
+        return
+    }
+
+    if ($existing.Count -gt 0) {
+        Write-Host "Updating route: $addr via $gateway"
+        $existing | Remove-NetRoute -Confirm:$false -ErrorAction SilentlyContinue
+    }
+
+    Write-Host "Adding route: $addr via $gateway"
     New-NetRoute `
-        -DestinationPrefix "$addr/32" `
+        -DestinationPrefix $dest `
         -NextHop $gateway `
         -PolicyStore ActiveStore `
         -ErrorAction Stop
 }
-

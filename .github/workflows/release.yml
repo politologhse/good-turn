@@ -187,10 +187,18 @@ jobs:
         with:
           path: dist
 
+      - name: Generate checksums
+        run: |
+          cd dist
+          find . -type f \( -name '*.exe' -o -name 'client-*' -o -name 'server-*' -o -name '*.zip' \) -exec sha256sum {} \; | sort > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**
+          files: |
+            dist/**
+            dist/SHA256SUMS
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           overwrite_files: true

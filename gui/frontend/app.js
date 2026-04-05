@@ -295,31 +295,26 @@ importCancel.addEventListener('click', () => {
   importModal.classList.remove('visible');
 });
 
-importOk.addEventListener('click', () => {
+importOk.addEventListener('click', async () => {
   const raw = importInput.value.trim();
   if (!raw) return;
+  importModal.classList.remove('visible');
 
   try {
-    let data = raw.replace(/^[\s\uFEFF\u200B]*/, '');
-    const gtIdx = data.indexOf('gt://');
-    if (gtIdx !== -1) data = data.slice(gtIdx + 5);
-    data = data.replace(/[\s\uFEFF\u200B]/g, '');
-
-    const json = JSON.parse(atob(data));
-    if (json.a) el.peerAddr.value = json.a;
-    if (json.p) {
-      el.hyPassword.value = json.p;
-      try { sessionStorage.setItem('gt-pw', json.p); } catch (_) {}
+    // Parse via Go backend (shared validation with server/CLI)
+    const p = await window.go.main.App.ImportProfile(raw);
+    if (p.addr) el.peerAddr.value = p.addr;
+    if (p.password) {
+      el.hyPassword.value = p.password;
+      try { sessionStorage.setItem('gt-pw', p.password); } catch (_) {}
     }
-    if (json.s) el.sni.value = json.s;
-    log('Profile imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
+    if (p.sni) el.sni.value = p.sni;
+    log('Profile imported: server=' + (p.addr || '') + ', sni=' + (p.sni || ''));
     saveConfig();
     refreshIdleUi();
   } catch (e) {
-    log('Invalid config string: ' + e.message);
+    log('Invalid profile: ' + e);
   }
-
-  importModal.classList.remove('visible');
 });
 
 importModal.addEventListener('click', event => {
