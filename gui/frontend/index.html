@@ -38,7 +38,7 @@
           <div class="brand-copy">
             <p class="section-tag">Portal Relay Console</p>
             <h1>Good TURN</h1>
-            <p class="brand-subtitle">Безумная мультяшная консоль для маскировки трафика под VK-звонок и проброса его через relay-портал.</p>
+            <p class="brand-subtitle">Клиент для маскировки трафика под VK-звонок и проброса его через relay-профиль.</p>
             <div class="brand-stickers" aria-hidden="true">
               <span class="sticker sticker--pink">totally normal</span>
               <span class="sticker sticker--yellow">slime calibrated</span>
@@ -58,7 +58,7 @@
               <polyline points="7 10 12 15 17 10"/>
               <line x1="12" y1="15" x2="12" y2="3"/>
             </svg>
-            Import config capsule
+            Import profile
           </button>
         </div>
       </header>
@@ -91,7 +91,7 @@
             <div class="reactor-copy">
               <p class="section-tag">Reactor Core</p>
               <h2>Ignition sequence</h2>
-              <p class="reactor-text" id="reactorText">Load a live VK call, relay address, and auth key to arm the console.</p>
+              <p class="reactor-text" id="reactorText">Load a Hysteria profile and a live VK call link to arm the console.</p>
             </div>
           </div>
 
@@ -128,7 +128,7 @@
             <div>
               <p class="section-tag">Coordinates</p>
               <h2 class="panel-title">Feed the machine</h2>
-              <p class="panel-note">Три ингредиента: живая VK-ссылка, адрес relay и секретный ключ.</p>
+              <p class="panel-note">Два ингредиента: профиль Hysteria и живая VK-ссылка.</p>
             </div>
 
             <label class="proxy-toggle" for="systemProxy">
@@ -138,6 +138,21 @@
           </div>
 
           <div class="fields" id="fields">
+            <div class="field-card field-card--profile" id="profileCard">
+              <span class="field-copy">
+                <span class="field-kicker">Relay profile</span>
+                <span class="field-label">Hysteria profile</span>
+              </span>
+              <div class="profile-shell">
+                <div class="profile-summary">
+                  <span class="profile-badge" id="profileBadge">Profile missing</span>
+                  <button class="profile-import-btn" id="profileImportBtn" type="button">Import profile</button>
+                </div>
+                <p class="profile-state" id="profileState">Import the `gt://...` profile from the server to fill the relay address and password.</p>
+                <p class="profile-meta" id="profileMeta">Адрес relay и пароль будут подхвачены автоматически.</p>
+              </div>
+            </div>
+
             <label class="field-card" for="vkLink">
               <span class="field-copy">
                 <span class="field-kicker">Camouflage signal</span>
@@ -154,38 +169,6 @@
               </div>
             </label>
 
-            <label class="field-card" for="peerAddr">
-              <span class="field-copy">
-                <span class="field-kicker">Relay target</span>
-                <span class="field-label">Server address</span>
-              </span>
-              <div class="input-group">
-                <div class="input-icon">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="3" width="20" height="7" rx="2"/>
-                    <rect x="2" y="14" width="20" height="7" rx="2"/>
-                    <circle cx="6" cy="6.5" r="1" fill="currentColor"/>
-                    <circle cx="6" cy="17.5" r="1" fill="currentColor"/>
-                  </svg>
-                </div>
-                <input type="text" id="peerAddr" placeholder="185.1.2.3:56000" autocomplete="off">
-              </div>
-            </label>
-
-            <label class="field-card" for="hyPassword">
-              <span class="field-copy">
-                <span class="field-kicker">Auth key</span>
-                <span class="field-label">Password</span>
-              </span>
-              <div class="input-group">
-                <div class="input-icon">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
-                  </svg>
-                </div>
-                <input type="password" id="hyPassword" placeholder="Relay password" autocomplete="off">
-              </div>
-            </label>
           </div>
         </section>
 
@@ -199,6 +182,22 @@
 
           <div class="settings-body">
             <section class="settings-cluster">
+              <h3>Profile</h3>
+              <div class="settings-row">
+                <label for="peerAddr">Relay address</label>
+                <input type="text" id="peerAddr" placeholder="185.1.2.3:56000" class="sm-input">
+              </div>
+              <div class="settings-row">
+                <label for="hyPassword">Password</label>
+                <input type="password" id="hyPassword" placeholder="Filled from config" class="sm-input">
+              </div>
+              <div class="settings-row">
+                <label for="sni">SNI</label>
+                <input type="text" id="sni" placeholder="auto" class="sm-input">
+              </div>
+            </section>
+
+            <section class="settings-cluster">
               <h3>Transport</h3>
               <div class="settings-row">
                 <label for="turnMode">TURN mode</label>
@@ -210,10 +209,6 @@
               <div class="settings-row">
                 <label for="streams">Streams</label>
                 <input type="number" id="streams" value="1" min="1" max="32" class="sm-input">
-              </div>
-              <div class="settings-row">
-                <label for="sni">SNI</label>
-                <input type="text" id="sni" placeholder="auto" class="sm-input">
               </div>
             </section>
 
@@ -277,9 +272,9 @@
 
     <div class="modal-overlay" id="importModal">
       <div class="modal">
-        <p class="section-tag">Import Capsule</p>
-        <h3>Load relay config</h3>
-        <p>Paste the `gt://...` capsule from the server and the console will squeeze out the relay coordinates for you.</p>
+        <p class="section-tag">Import Profile</p>
+        <h3>Load profile</h3>
+        <p>Paste the `gt://...` profile from the server and the relay address, password and SNI will be filled automatically.</p>
         <textarea id="importInput" rows="4" placeholder="gt://eyJ..."></textarea>
         <div class="modal-buttons">
           <button class="btn-secondary" id="importCancel" type="button">Cancel</button>

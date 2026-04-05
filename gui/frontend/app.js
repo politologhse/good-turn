@@ -21,6 +21,11 @@ const powerBtn = $('powerBtn');
 const powerLabel = $('powerLabel');
 const reactorText = $('reactorText');
 const reactorMood = $('reactorMood');
+const profileCard = $('profileCard');
+const profileBadge = $('profileBadge');
+const profileState = $('profileState');
+const profileMeta = $('profileMeta');
+const profileImportBtn = $('profileImportBtn');
 const statusBar = $('statusBar');
 const statusDot = $('statusDot');
 const statusText = $('statusText');
@@ -38,7 +43,7 @@ const importInput = $('importInput');
 const importCancel = $('importCancel');
 const importOk = $('importOk');
 
-const REQUIRED_FIELDS = ['vkLink', 'peerAddr', 'hyPassword'];
+const REQUIRED_FIELDS = ['vkLink'];
 const STORAGE_KEY = 'goodturn-config';
 const SENSITIVE_FIELDS = new Set(['hyPassword']);
 
@@ -46,7 +51,11 @@ let state = 'disconnected';
 let metricsInterval = null;
 
 function hasRequiredInputs() {
-  return REQUIRED_FIELDS.every(key => String(el[key].value || '').trim());
+  return REQUIRED_FIELDS.every(key => String(el[key].value || '').trim()) && hasProfileReady();
+}
+
+function hasProfileReady() {
+  return Boolean(String(el.peerAddr.value || '').trim() && String(el.hyPassword.value || '').trim());
 }
 
 function resetMetricsDisplay() {
@@ -66,9 +75,30 @@ function refreshStaticInfo() {
   infoProfile.textContent = mode + ' · x' + streams;
 }
 
+function refreshProfileInfo() {
+  const addr = String(el.peerAddr.value || '').trim();
+  const sni = String(el.sni.value || '').trim();
+  const ready = hasProfileReady();
+
+  if (!profileBadge || !profileState || !profileMeta) return;
+
+  profileBadge.textContent = ready ? 'Profile loaded' : 'Profile missing';
+  profileBadge.classList.toggle('is-ready', ready);
+  profileBadge.classList.toggle('is-missing', !ready);
+
+  if (ready) {
+    profileState.textContent = addr;
+    profileMeta.textContent = 'SNI: ' + (sni || 'auto') + ' · пароль подхвачен из конфига';
+  } else {
+    profileState.textContent = 'Import the `gt://...` profile from the server to fill the relay address and password.';
+    profileMeta.textContent = 'Адрес relay и пароль будут подхвачены автоматически.';
+  }
+}
+
 function applyFieldState() {
   const idle = (state === 'disconnected' || state === 'error');
   const ready = hasRequiredInputs();
+  const profileReady = hasProfileReady();
 
   document.querySelectorAll('.field-card').forEach(card => {
     card.classList.toggle('is-disabled', !idle);
@@ -79,6 +109,10 @@ function applyFieldState() {
     if (!card) return;
     card.classList.toggle('needs-input', idle && !ready && !String(el[key].value || '').trim());
   });
+
+  if (profileCard) {
+    profileCard.classList.toggle('needs-input', idle && !profileReady);
+  }
 
   document.querySelectorAll('.input-group').forEach(group => {
     const input = group.querySelector('input');
@@ -119,7 +153,7 @@ function getUiCopy(newState, message) {
     return {
       button: 'Kick again',
       status: message || 'Portal burped',
-      reactor: message || 'The portal sneezed itself shut. Check the coordinates, key, or transport knobs and poke it again.',
+      reactor: message || 'The portal sneezed itself shut. Check the profile, VK link or transport knobs and poke it again.',
       mood: 'portal mood: grumpy',
     };
   }
@@ -128,7 +162,7 @@ function getUiCopy(newState, message) {
     return {
       button: 'Kick the portal',
       status: 'Portal primed',
-      reactor: 'Everything is loaded. Hit the reactor and let the tunnel ooze into place.',
+      reactor: 'Profile loaded and VK link is in place. Hit the reactor and let the tunnel ooze into place.',
       mood: 'portal mood: hungry',
     };
   }
@@ -136,7 +170,7 @@ function getUiCopy(newState, message) {
   return {
     button: 'Prime portal',
     status: 'Need coordinates',
-    reactor: 'Feed the machine a live VK call, relay address and secret key so the portal slime knows where to go.',
+    reactor: 'Feed the machine a Hysteria profile and a live VK call link so the portal slime knows where to go.',
     mood: 'portal mood: sleepy',
   };
 }
@@ -179,6 +213,7 @@ function setState(newState, message) {
 }
 
 function refreshIdleUi() {
+  refreshProfileInfo();
   refreshStaticInfo();
   applyFieldState();
   updateActionAvailability();
@@ -250,6 +285,12 @@ importBtn.addEventListener('click', () => {
   importInput.focus();
 });
 
+if (profileImportBtn) {
+  profileImportBtn.addEventListener('click', () => {
+    importBtn.click();
+  });
+}
+
 importCancel.addEventListener('click', () => {
   importModal.classList.remove('visible');
 });
@@ -271,7 +312,7 @@ importOk.addEventListener('click', () => {
       try { sessionStorage.setItem('gt-pw', json.p); } catch (_) {}
     }
     if (json.s) el.sni.value = json.s;
-    log('Config imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
+    log('Profile imported: server=' + (json.a || '') + ', sni=' + (json.s || ''));
     saveConfig();
     refreshIdleUi();
   } catch (e) {
@@ -373,6 +414,7 @@ try {
   if (pw) el.hyPassword.value = pw;
 } catch (_) {}
 
+refreshProfileInfo();
 refreshStaticInfo();
 resetMetricsDisplay();
 setState('disconnected');
