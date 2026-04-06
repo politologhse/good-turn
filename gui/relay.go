@@ -37,7 +37,8 @@ type Relay struct {
 	wg      sync.WaitGroup
 	ticker  *time.Ticker
 	Metrics ConnMetrics
-	critErr chan error // critical errors (e.g. manual captcha) bubble up to Start()
+	critErr chan error    // critical errors (e.g. manual captcha) bubble up to Start()
+	readyCh chan struct{} // signaled after first successful TURN allocation
 }
 
 func NewRelay(cfg RelayConfig, logf logFunc) *Relay {
@@ -89,13 +90,27 @@ func (r *Relay) Start(parentCtx context.Context) error {
 
 	r.ticker = time.NewTicker(200 * time.Millisecond)
 	t := r.ticker.C
-	r.critErr = make(chan error, 1) // critical errors (captcha manual) bubble up
+	r.critErr = make(chan error, 1)
+	r.readyCh = make(chan struct{}, 1)
 
 	if r.cfg.NoDTLS {
 		for i := 0; i < r.cfg.Streams; i++ {
 			r.wg.Go(func() {
 				r.oneTurnConnectionLoop(ctx, params, peer, listenConnChan, t)
 			})
+		}
+		// Wait for first successful TURN allocation or critical error
+		select {
+		case <-r.readyCh:
+			r.logf("TURN relay connected (no DTLS)")
+		case err := <-r.critErr:
+			cancel()
+			return err
+		case <-ctx.Done():
+			return fmt.Errorf("cancelled before connection established")
+		case <-time.After(30 * time.Second):
+			cancel()
+			return fmt.Errorf("timeout waiting for TURN allocation")
 		}
 	} else {
 		okchan := make(chan struct{}, 1)
@@ -313,7 +328,7 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 	r.logf("Fetching TURN credentials...")
 	user, pass, url, err1 := tp.getCreds(tp.link)
 	if err1 != nil {
-		err = fmt.Errorf("get TURN creds: %s", err1)
+		err = fmt.Errorf("get TURN creds: %w", err1)
 		return
 	}
 
@@ -400,6 +415,12 @@ func (r *Relay) oneTurnConnection(ctx context.Context, tp *turnParams, peer *net
 	defer func() { _ = relayConn.Close() }()
 
 	r.logf(fmt.Sprintf("Relay address: %s", relayConn.LocalAddr().String()))
+
+	// Signal successful TURN allocation (used by NoDTLS wait path)
+	select {
+	case r.readyCh <- struct{}{}:
+	default:
+	}
 
 	wg := sync.WaitGroup{}
 	wg.Add(2)
