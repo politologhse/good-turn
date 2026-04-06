@@ -112,9 +112,15 @@ elif command -v go &>/dev/null; then
   TMP=$(mktemp -d)
   cd "$TMP"
   LATEST_TAG=$(curl -fsSL https://api.github.com/repos/politologhse/good-turn/releases/latest 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-  git clone --depth 1 --branch "${LATEST_TAG:-main}" https://github.com/politologhse/good-turn.git 2>/dev/null
+  if [ -z "$LATEST_TAG" ]; then
+    echo -e "${RED}Cannot determine latest release tag. Aborting source build.${NC}"
+    echo "  Download the server binary manually from:"
+    echo "  https://github.com/politologhse/good-turn/releases"
+    exit 1
+  fi
+  git clone --depth 1 --branch "$LATEST_TAG" https://github.com/politologhse/good-turn.git 2>/dev/null
   cd good-turn
-  echo "  Building ${LATEST_TAG:-HEAD}..."
+  echo "  Building $LATEST_TAG..."
   CGO_ENABLED=0 go build -ldflags="-s -w" -o /usr/local/bin/good-turn-server ./server
   cd /
   rm -rf "$TMP"

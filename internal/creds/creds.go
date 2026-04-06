@@ -162,7 +162,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 					return "", "", "", fmt.Errorf("image captcha not supported (no session_token)")
 				}
 				ctx := context.Background()
-				successToken, solveErr := solveVkCaptcha(ctx, ce, transport, logf)
+				successToken, solveErr := solveVkCaptcha(ctx, ce, bp, transport, logf)
 				if solveErr != nil {
 					return "", "", "", fmt.Errorf("captcha solve: %w", solveErr)
 				}

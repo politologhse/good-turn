@@ -90,7 +90,7 @@ func parseVkCaptchaError(errData map[string]interface{}) *vkCaptchaError {
 	}
 }
 
-func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, transport http.RoundTripper, logf LogFunc) (string, error) {
+func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, bp BrowserProfile, transport http.RoundTripper, logf LogFunc) (string, error) {
 	logf("Solving VK PoW captcha...")
 	if ce.SessionToken == "" {
 		return "", &CaptchaError{
@@ -99,7 +99,7 @@ func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, transport http.Roun
 		}
 	}
 
-	powInput, difficulty, err := fetchPowInput(ctx, ce.RedirectURI, transport)
+	powInput, difficulty, err := fetchPowInput(ctx, ce.RedirectURI, bp, transport)
 	if err != nil {
 		return "", &CaptchaError{
 			Kind:    CaptchaNetworkError,
@@ -116,7 +116,7 @@ func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, transport http.Roun
 		}
 	}
 
-	successToken, err := callCaptchaNotRobot(ctx, ce.SessionToken, hash, transport)
+	successToken, err := callCaptchaNotRobot(ctx, ce.SessionToken, hash, bp, transport)
 	if err != nil {
 		// BOT or ERROR_LIMIT — manual fallback possible
 		return "", &CaptchaError{
@@ -130,12 +130,12 @@ func solveVkCaptcha(ctx context.Context, ce *vkCaptchaError, transport http.Roun
 	return successToken, nil
 }
 
-func fetchPowInput(ctx context.Context, redirectURI string, transport http.RoundTripper) (string, int, error) {
+func fetchPowInput(ctx context.Context, redirectURI string, bp BrowserProfile, transport http.RoundTripper) (string, int, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", redirectURI, nil)
 	if err != nil {
 		return "", 0, err
 	}
-	req.Header.Set("User-Agent", randomUserAgent())
+	bp.ApplyHeaders(req)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 
 	client := &http.Client{Timeout: 20 * time.Second, Transport: transport}
@@ -181,8 +181,7 @@ func solvePoW(powInput string, difficulty int) string {
 	return ""
 }
 
-func callCaptchaNotRobot(ctx context.Context, sessionToken, hash string, transport http.RoundTripper) (string, error) {
-	bp := RandomProfile()
+func callCaptchaNotRobot(ctx context.Context, sessionToken, hash string, bp BrowserProfile, transport http.RoundTripper) (string, error) {
 	vkReq := func(method, postData string) (map[string]interface{}, error) {
 		reqURL := "https://api.vk.ru/method/" + method + "?v=5.131"
 		req, err := http.NewRequestWithContext(ctx, "POST", reqURL, strings.NewReader(postData))

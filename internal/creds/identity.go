@@ -91,7 +91,3 @@ func randomName() string {
 	return fmt.Sprintf("%s %s", fn, ln)
 }
 
-// randomUserAgent returns a random user-agent string (for backward compat).
-func randomUserAgent() string {
-	return RandomProfile().UserAgent
-}

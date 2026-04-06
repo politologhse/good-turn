@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/pion/dtls/v3/pkg/crypto/selfsign"
 	"github.com/pion/logging"
 	"github.com/pion/turn/v5"
+	"github.com/politologhse/good-turn/internal/creds"
 )
 
 type RelayConfig struct {
@@ -35,6 +37,7 @@ type Relay struct {
 	wg      sync.WaitGroup
 	ticker  *time.Ticker
 	Metrics ConnMetrics
+	critErr chan error // critical errors (e.g. manual captcha) bubble up to Start()
 }
 
 func NewRelay(cfg RelayConfig, logf logFunc) *Relay {
@@ -84,9 +87,9 @@ func (r *Relay) Start(parentCtx context.Context) error {
 		getCreds: r.cfg.GetCreds,
 	}
 
-	// #10 fix: use NewTicker instead of Tick so we can stop it
 	r.ticker = time.NewTicker(200 * time.Millisecond)
 	t := r.ticker.C
+	r.critErr = make(chan error, 1) // critical errors (captcha manual) bubble up
 
 	if r.cfg.NoDTLS {
 		for i := 0; i < r.cfg.Streams; i++ {
@@ -95,7 +98,6 @@ func (r *Relay) Start(parentCtx context.Context) error {
 			})
 		}
 	} else {
-		// #12 fix: buffered channel so sender never blocks
 		okchan := make(chan struct{}, 1)
 		connchan := make(chan net.PacketConn)
 
@@ -109,6 +111,9 @@ func (r *Relay) Start(parentCtx context.Context) error {
 		select {
 		case <-okchan:
 			r.logf("TURN relay connected")
+		case err := <-r.critErr:
+			cancel()
+			return err
 		case <-ctx.Done():
 			return fmt.Errorf("cancelled before connection established")
 		case <-time.After(30 * time.Second):
@@ -467,6 +472,15 @@ func (r *Relay) oneTurnConnectionLoop(ctx context.Context, tp *turnParams, peer 
 				c := make(chan error)
 				go r.oneTurnConnection(ctx, tp, peer, conn2, c)
 				if err := <-c; err != nil {
+					// Propagate critical errors (manual captcha) up to Start()
+					var ce *creds.CaptchaError
+					if errors.As(err, &ce) && ce.Kind == creds.CaptchaManualNeeded {
+						select {
+						case r.critErr <- err:
+						default:
+						}
+						return
+					}
 					r.logf(fmt.Sprintf("TURN: %s", err))
 				}
 			default:
