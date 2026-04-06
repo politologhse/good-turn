@@ -70,7 +70,7 @@ func TestVkCredsEndToEndMock(t *testing.T) {
 	// The mock above verifies the request structure at each step.
 
 	// Instead, test that doHTTPPost works correctly with our mock
-	resp, err := doHTTPPost("key=val", srv.URL+"/login?act=get_anonym_token", defaultUserAgent, http.DefaultTransport)
+	resp, err := doHTTPPost("key=val", srv.URL+"/login?act=get_anonym_token", RandomProfile(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("step 1: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestVkCredsEndToEndMock(t *testing.T) {
 		t.Fatalf("step 1 parse: tok=%q err=%v", tok1, err)
 	}
 
-	resp, err = doHTTPPost("vk_join_link=test&access_token="+tok1, srv.URL+"/method/calls.getAnonymousToken", defaultUserAgent, http.DefaultTransport)
+	resp, err = doHTTPPost("vk_join_link=test&access_token="+tok1, srv.URL+"/method/calls.getAnonymousToken", RandomProfile(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("step 2: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestVkCredsEndToEndMock(t *testing.T) {
 		t.Fatalf("step 2 parse: tok=%q err=%v", tok2, err)
 	}
 
-	resp, err = doHTTPPost("method=auth.anonymLogin", srv.URL+"/fb.do", defaultUserAgent, http.DefaultTransport)
+	resp, err = doHTTPPost("method=auth.anonymLogin", srv.URL+"/fb.do", RandomProfile(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("step 3: %v", err)
 	}
@@ -97,7 +97,7 @@ func TestVkCredsEndToEndMock(t *testing.T) {
 		t.Fatalf("step 3 parse: sess=%q err=%v", sess, err)
 	}
 
-	resp, err = doHTTPPost("method=vchat.joinConversationByLink&anonymToken=tok2&session_key=sess3", srv.URL+"/fb.do", defaultUserAgent, http.DefaultTransport)
+	resp, err = doHTTPPost("method=vchat.joinConversationByLink&anonymToken=tok2&session_key=sess3", srv.URL+"/fb.do", RandomProfile(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("step 4: %v", err)
 	}

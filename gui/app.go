@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -215,6 +216,19 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 	}, a.log)
 
 	if err := relay.Start(ctx); err != nil {
+		// Check if it's a manual captcha request
+		var ce *creds.CaptchaError
+		if errors.As(err, &ce) && ce.Kind == creds.CaptchaManualNeeded && ce.RedirectURI != "" {
+			a.log("Manual verification required — open the link in your browser")
+			if a.wailsReady {
+				wailsrt.EventsEmit(a.ctx, "captcha-manual", ce.RedirectURI)
+			}
+			// Don't tear down — let user complete verification then retry
+			a.mu.Lock()
+			a.setState(StateError, "Manual verification required")
+			a.mu.Unlock()
+			return
+		}
 		cancel()
 		a.mu.Lock()
 		a.setState(StateError, err.Error())

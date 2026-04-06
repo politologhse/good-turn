@@ -15,8 +15,17 @@ if (-not $gateway) {
 Write-Host "Default gateway: $gateway"
 
 $input | ForEach-Object {
-    $addr = $_.Trim()
-    if ($addr -eq "") { return }
+    $line = $_.Trim()
+    if ($line -eq "") { return }
+
+    # Extract IPv4 from line (plain IP or relayed-address=IP:port)
+    if ($line -match 'relayed-address=(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+') {
+        $addr = $Matches[1]
+    } elseif ($line -match '^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$') {
+        $addr = $Matches[1]
+    } else {
+        return  # skip non-IPv4 lines
+    }
 
     $dest = "$addr/32"
     $existing = Get-NetRoute -DestinationPrefix $dest -ErrorAction SilentlyContinue

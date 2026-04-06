@@ -365,6 +365,14 @@ function initEvents() {
   window.runtime.EventsOn('log', msg => {
     log(msg);
   });
+
+  window.runtime.EventsOn('captcha-manual', url => {
+    log('Manual verification needed — opening browser...');
+    try { window.open(url, '_blank'); } catch (_) {}
+    // Show URL in log so user can copy if browser didn't open
+    log('If browser did not open, go to: ' + url);
+    log('Complete the verification, then click Connect again.');
+  });
 }
 
 // === Metrics polling ===

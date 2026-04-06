@@ -120,7 +120,7 @@ func TestDoHTTPPost(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resp, err := doHTTPPost("key=val", srv.URL, "test-agent", http.DefaultTransport)
+	resp, err := doHTTPPost("key=val", srv.URL, RandomProfile(), http.DefaultTransport)
 	if err != nil {
 		t.Fatalf("doHTTPPost: %v", err)
 	}

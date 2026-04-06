@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +24,7 @@ type LogFunc func(string)
 type GetCredsFunc func(string) (string, string, string, error)
 
 // WithRetry wraps a GetCredsFunc with exponential backoff retry.
+// CaptchaManualNeeded errors are NOT retried — they propagate immediately for the GUI to handle.
 func WithRetry(f GetCredsFunc, maxAttempts int, logf LogFunc) GetCredsFunc {
 	return func(link string) (string, string, string, error) {
 		var lastErr error
@@ -31,6 +33,11 @@ func WithRetry(f GetCredsFunc, maxAttempts int, logf LogFunc) GetCredsFunc {
 			user, pass, addr, err := f(link)
 			if err == nil {
 				return user, pass, addr, nil
+			}
+			// Don't retry manual captcha — propagate for GUI handling
+			var ce *CaptchaError
+			if errors.As(err, &ce) && ce.Kind == CaptchaManualNeeded {
+				return "", "", "", err
 			}
 			lastErr = err
 			if i < maxAttempts-1 {
@@ -69,7 +76,7 @@ func getString(m map[string]interface{}, keys ...string) (string, error) {
 	return s, nil
 }
 
-func doHTTPPost(data, url, userAgent string, transport http.RoundTripper) (map[string]interface{}, error) {
+func doHTTPPost(data, url string, bp BrowserProfile, transport http.RoundTripper) (map[string]interface{}, error) {
 	client := &http.Client{
 		Timeout:   20 * time.Second,
 		Transport: transport,
@@ -80,7 +87,7 @@ func doHTTPPost(data, url, userAgent string, transport http.RoundTripper) (map[s
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("User-Agent", userAgent)
+	bp.ApplyHeaders(req)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := client.Do(req)
@@ -101,8 +108,6 @@ func doHTTPPost(data, url, userAgent string, transport http.RoundTripper) (map[s
 	return result, nil
 }
 
-const defaultUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:144.0) Gecko/20100101 Firefox/144.0"
-
 // GetVkCreds fetches TURN credentials from VK call link.
 func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, string, string, error) {
 	transport := &http.Transport{
@@ -120,7 +125,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 	resp, err := doHTTPPost(
 		"client_id=6287487&token_type=messages&client_secret=QbYic1K3lEV5kTGiqlq2&version=1&app_id=6287487",
 		"https://login.vk.ru/?act=get_anonym_token",
-		bp.UserAgent, transport,
+		bp, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("VK anon token request: %w", err)
@@ -139,7 +144,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 		resp, err = doHTTPPost(
 			data,
 			"https://api.vk.ru/method/calls.getAnonymousToken?v=5.274&client_id=6287487",
-			bp.UserAgent, transport,
+			bp, transport,
 		)
 		if err != nil {
 			return "", "", "", fmt.Errorf("VK call token request: %w", err)
@@ -182,7 +187,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 	resp, err = doHTTPPost(
 		fmt.Sprintf("session_data=%%7B%%22version%%22%%3A2%%2C%%22device_id%%22%%3A%%22%s%%22%%2C%%22client_version%%22%%3A1.1%%2C%%22client_type%%22%%3A%%22SDK_JS%%22%%7D&method=auth.anonymLogin&format=JSON&application_key=CGMMEJLGDIHBABABA", uuid.New()),
 		"https://calls.okcdn.ru/fb.do",
-		bp.UserAgent, transport,
+		bp, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("OK session request: %w", err)
@@ -196,7 +201,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 	resp, err = doHTTPPost(
 		fmt.Sprintf("joinLink=%s&isVideo=false&protocolVersion=5&anonymToken=%s&method=vchat.joinConversationByLink&format=JSON&application_key=CGMMEJLGDIHBABABA&session_key=%s", link, token2, token3),
 		"https://calls.okcdn.ru/fb.do",
-		bp.UserAgent, transport,
+		bp, transport,
 	)
 	if err != nil {
 		return "", "", "", fmt.Errorf("TURN creds request: %w", err)

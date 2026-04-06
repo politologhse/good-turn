@@ -108,11 +108,13 @@ if curl -fSL -o /usr/local/bin/good-turn-server "$RELEASE_URL" 2>/dev/null; then
   chmod +x /usr/local/bin/good-turn-server
   echo "  Downloaded from GitHub Releases"
 elif command -v go &>/dev/null; then
-  echo "  Download failed, building from source..."
+  echo "  Download failed, building from source (pinned to latest tag)..."
   TMP=$(mktemp -d)
   cd "$TMP"
-  git clone --depth 1 https://github.com/politologhse/good-turn.git 2>/dev/null
+  LATEST_TAG=$(curl -fsSL https://api.github.com/repos/politologhse/good-turn/releases/latest 2>/dev/null | grep '"tag_name"' | head -1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
+  git clone --depth 1 --branch "${LATEST_TAG:-main}" https://github.com/politologhse/good-turn.git 2>/dev/null
   cd good-turn
+  echo "  Building ${LATEST_TAG:-HEAD}..."
   CGO_ENABLED=0 go build -ldflags="-s -w" -o /usr/local/bin/good-turn-server ./server
   cd /
   rm -rf "$TMP"
