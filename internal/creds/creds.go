@@ -17,6 +17,23 @@ import (
 	"github.com/google/uuid"
 )
 
+// classifyNetError returns a user-friendly description of network errors.
+func classifyNetError(err error, host string) string {
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "no such host"):
+		return fmt.Sprintf("DNS lookup failed for %s — check internet connection or DNS settings", host)
+	case strings.Contains(s, "connection refused"):
+		return fmt.Sprintf("%s refused connection — server may be down", host)
+	case strings.Contains(s, "i/o timeout") || strings.Contains(s, "deadline exceeded"):
+		return fmt.Sprintf("%s connection timed out — check firewall or network", host)
+	case strings.Contains(s, "certificate"):
+		return fmt.Sprintf("%s TLS error — certificate issue", host)
+	default:
+		return fmt.Sprintf("%s: %s", host, s)
+	}
+}
+
 // LogFunc is a callback for log messages.
 type LogFunc func(string)
 
@@ -128,7 +145,7 @@ func GetVkCreds(link string, dialer *dnsdialer.Dialer, logf LogFunc) (string, st
 		bp, transport,
 	)
 	if err != nil {
-		return "", "", "", fmt.Errorf("VK anon token request: %w", err)
+		return "", "", "", fmt.Errorf("VK auth: %s", classifyNetError(err, "login.vk.ru"))
 	}
 	token1, err := getString(resp, "data", "access_token")
 	if err != nil {

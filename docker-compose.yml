@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  hysteria:
+    image: tobyxdd/hysteria:v2
+    restart: unless-stopped
+    volumes:
+      - ./hysteria-config.yaml:/etc/hysteria/config.yaml:ro
+      - hysteria-certs:/etc/hysteria/certs
+    network_mode: host
+    command: server -c /etc/hysteria/config.yaml
+
+  good-turn:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "56000:56000/udp"
+    environment:
+      CONNECT_ADDR: "127.0.0.1:443"
+    depends_on:
+      - hysteria
+    network_mode: host
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  hysteria-certs:

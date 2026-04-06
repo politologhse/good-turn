@@ -10,6 +10,7 @@ import (
 
 	"github.com/bschaatsbergen/dnsdialer"
 	"github.com/politologhse/good-turn/internal/creds"
+	"github.com/politologhse/good-turn/internal/doctor"
 	"github.com/politologhse/good-turn/internal/profile"
 	wailsrt "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -219,19 +220,18 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 		// Check if it's a manual captcha request
 		var ce *creds.CaptchaError
 		if errors.As(err, &ce) && ce.Kind == creds.CaptchaManualNeeded && ce.RedirectURI != "" {
-			a.log("Manual verification required — open the link in your browser")
+			a.log("[1/4] Manual verification required — open the link in your browser")
 			if a.wailsReady {
 				wailsrt.EventsEmit(a.ctx, "captcha-manual", ce.RedirectURI)
 			}
-			// Don't tear down — let user complete verification then retry
 			a.mu.Lock()
-			a.setState(StateError, "Manual verification required")
+			a.setState(StateError, "Manual captcha verification required")
 			a.mu.Unlock()
 			return
 		}
 		cancel()
 		a.mu.Lock()
-		a.setState(StateError, err.Error())
+		a.setState(StateError, fmt.Sprintf("[1/4] Relay failed: %s", err))
 		a.mu.Unlock()
 		return
 	}
@@ -253,7 +253,7 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 	}); err != nil {
 		a.mu.Lock()
 		a.teardown()
-		a.setState(StateError, err.Error())
+		a.setState(StateError, fmt.Sprintf("[2/4] Hysteria2 failed: %s", err))
 		a.mu.Unlock()
 		return
 	}
@@ -318,6 +318,18 @@ func (a *App) GetMetrics() MetricsSnapshot {
 		return a.relay.Metrics.Snapshot()
 	}
 	return MetricsSnapshot{}
+}
+
+// RunDoctor performs connection diagnostics without connecting.
+func (a *App) RunDoctor(profileStr, vkLink string, socksPort int, noDtls bool) doctor.Report {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	return doctor.Run(ctx, doctor.Config{
+		ProfileString: profileStr,
+		VkLink:        vkLink,
+		SocksPort:     socksPort,
+		NoDTLS:        noDtls,
+	})
 }
 
 // CaptchaCompleted is called from frontend after user manually verified captcha.

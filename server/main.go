@@ -23,8 +23,9 @@ func main() {
 	certFile := flag.String("cert", "", "path to DTLS certificate PEM (auto-generated if empty)")
 	keyFile := flag.String("key", "", "path to DTLS private key PEM (auto-generated if empty)")
 
-	// Config generation flags
+	// Utility flags
 	genConfig := flag.Bool("generate-config", false, "generate gt:// config string and exit")
+	healthCheck := flag.Bool("health", false, "check if server can bind and exit")
 	gcAddr := flag.String("addr", "", "server address for config (e.g. 185.1.2.3:56000)")
 	gcPass := flag.String("pass", "", "hysteria2 password for config")
 	gcSNI := flag.String("sni", "hy2", "SNI for config")
@@ -44,6 +45,23 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println(generateConfigString(*gcAddr, pass, *gcSNI))
+		return
+	}
+
+	// Health check mode
+	if *healthCheck {
+		addr, err := net.ResolveUDPAddr("udp", *listen)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "FAIL: cannot resolve %s: %s\n", *listen, err)
+			os.Exit(1)
+		}
+		ln, err := net.ListenPacket("udp", addr.String())
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "FAIL: cannot bind %s: %s\n", addr, err)
+			os.Exit(1)
+		}
+		_ = ln.Close()
+		fmt.Printf("OK: can bind %s\n", addr)
 		return
 	}
 
