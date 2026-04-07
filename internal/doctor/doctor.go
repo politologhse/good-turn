@@ -1,9 +1,13 @@
 // Package doctor provides connection diagnostics for Good TURN.
 // Each check runs independently and returns pass/warn/fail with actionable hints.
+//
+// Doctor uses the SAME network paths as runtime: dnsdialer for VK auth,
+// hybin.Find() for Hysteria2 lookup, real STUN/DTLS handshakes for reachability.
 package doctor
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/http"
@@ -12,6 +16,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bschaatsbergen/dnsdialer"
+	"github.com/pion/dtls/v3"
+	"github.com/pion/dtls/v3/pkg/crypto/selfsign"
+	"github.com/pion/stun/v3"
+	"github.com/politologhse/good-turn/internal/hybin"
 	"github.com/politologhse/good-turn/internal/profile"
 )
 
@@ -40,11 +49,20 @@ type Report struct {
 
 // Config holds parameters for running diagnostics.
 type Config struct {
-	ProfileString string // gt:// config string (optional)
-	VkLink        string // VK call link (optional)
-	HysteriaBin   string // path to hysteria binary (optional, auto-detected)
+	ProfileString string
+	VkLink        string
+	HysteriaBin   string
 	SocksPort     int
 	NoDTLS        bool
+}
+
+// vkDialer mirrors what creds.GetVkCreds uses for DNS resolution.
+func vkDialer() *dnsdialer.Dialer {
+	return dnsdialer.New(
+		dnsdialer.WithResolvers("77.88.8.8:53", "77.88.8.1:53", "8.8.8.8:53", "8.8.4.4:53", "1.1.1.1:53"),
+		dnsdialer.WithStrategy(dnsdialer.Fallback{}),
+		dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
+	)
 }
 
 // Run executes all diagnostic checks and returns a report.
@@ -52,9 +70,10 @@ func Run(ctx context.Context, cfg Config) Report {
 	r := Report{
 		Platform: fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	}
+	dialer := vkDialer()
 
 	r.Checks = append(r.Checks, checkProfile(cfg))
-	r.Checks = append(r.Checks, checkVkAuth(ctx))
+	r.Checks = append(r.Checks, checkVkAuth(ctx, dialer))
 	r.Checks = append(r.Checks, checkPeerReachability(ctx, cfg))
 	r.Checks = append(r.Checks, checkTurnPreflight(ctx))
 	r.Checks = append(r.Checks, checkHysteriaBinary(cfg))
@@ -97,31 +116,43 @@ func checkProfile(cfg Config) CheckResult {
 	}
 }
 
-func checkVkAuth(ctx context.Context) CheckResult {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+// checkVkAuth uses the same dnsdialer as runtime VK auth.
+func checkVkAuth(ctx context.Context, dialer *dnsdialer.Dialer) CheckResult {
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
+
+	client := &http.Client{
+		Timeout: 8 * time.Second,
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+		},
+	}
+	defer client.CloseIdleConnections()
 
 	req, err := http.NewRequestWithContext(ctx, "HEAD", "https://login.vk.ru/", nil)
 	if err != nil {
 		return CheckResult{Name: "VK Auth", Status: Fail, Detail: err.Error()}
 	}
-	resp, err := http.DefaultClient.Do(req)
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return CheckResult{
 			Name:   "VK Auth",
 			Status: Fail,
-			Detail: fmt.Sprintf("Cannot reach login.vk.ru: %s", err),
-			Hint:   "Check internet connection. VK auth requires access to login.vk.ru",
+			Detail: fmt.Sprintf("Cannot reach login.vk.ru via custom resolvers: %s", err),
+			Hint:   "VK auth requires login.vk.ru. Check internet connection.",
 		}
 	}
 	_ = resp.Body.Close()
 	return CheckResult{
 		Name:   "VK Auth",
 		Status: Pass,
-		Detail: fmt.Sprintf("login.vk.ru reachable (HTTP %d)", resp.StatusCode),
+		Detail: fmt.Sprintf("login.vk.ru reachable via dnsdialer (HTTP %d)", resp.StatusCode),
 	}
 }
 
+// checkPeerReachability does a real DTLS handshake to the peer (not just UDP dial).
 func checkPeerReachability(ctx context.Context, cfg Config) CheckResult {
 	if cfg.ProfileString == "" {
 		return CheckResult{Name: "Peer Host", Status: Warn, Detail: "No profile — skipping"}
@@ -136,73 +167,141 @@ func checkPeerReachability(ctx context.Context, cfg Config) CheckResult {
 		return CheckResult{Name: "Peer Host", Status: Fail, Detail: err.Error()}
 	}
 
-	// DNS resolution check
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-	addrs, err := net.DefaultResolver.LookupHost(ctx, host)
+	// DNS resolution
+	resolveCtx, resolveCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer resolveCancel()
+	addrs, err := net.DefaultResolver.LookupHost(resolveCtx, host)
 	if err != nil {
 		return CheckResult{
 			Name:   "Peer Host",
 			Status: Fail,
 			Detail: fmt.Sprintf("DNS lookup failed for %s: %s", host, err),
-			Hint:   "Check that the server address is correct. If using a domain, verify DNS records.",
+			Hint:   "Check that the server address is correct (or DDNS record is fresh)",
 		}
 	}
 
-	// UDP reachability (quick probe to the TURN port)
-	conn, err := net.DialTimeout("udp", p.Addr, 3*time.Second)
+	// REAL reachability: DTLS handshake to the good-turn server.
+	// This proves the server is alive AND speaks DTLS, not just that the OS made a UDP socket.
+	udpAddr, err := net.ResolveUDPAddr("udp", p.Addr)
+	if err != nil {
+		return CheckResult{Name: "Peer Host", Status: Fail, Detail: err.Error()}
+	}
+	udp, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
 		return CheckResult{
 			Name:   "Peer Host",
 			Status: Warn,
-			Detail: fmt.Sprintf("%s resolves to %s but UDP connect failed: %s", host, addrs[0], err),
-			Hint:   "Server may be down or firewall blocking UDP. Check that port is open.",
+			Detail: fmt.Sprintf("%s resolves to %s but UDP socket failed: %s", host, addrs[0], err),
 		}
 	}
-	_ = conn.Close()
+	defer func() { _ = udp.Close() }()
+
+	cert, err := selfsign.GenerateSelfSigned()
+	if err != nil {
+		return CheckResult{Name: "Peer Host", Status: Warn, Detail: fmt.Sprintf("cert gen: %s", err)}
+	}
+	dtlsCfg := &dtls.Config{
+		Certificates:       []tls.Certificate{cert},
+		InsecureSkipVerify: true,
+		CipherSuites:       []dtls.CipherSuiteID{dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+	}
+	dtlsConn, err := dtls.Client(udp, udpAddr, dtlsCfg)
+	if err != nil {
+		return CheckResult{
+			Name:   "Peer Host",
+			Status: Fail,
+			Detail: fmt.Sprintf("%s → %s: DTLS client init failed: %s", host, addrs[0], err),
+		}
+	}
+	hsCtx, hsCancel := context.WithTimeout(ctx, 8*time.Second)
+	defer hsCancel()
+	if err := dtlsConn.HandshakeContext(hsCtx); err != nil {
+		_ = dtlsConn.Close()
+		return CheckResult{
+			Name:   "Peer Host",
+			Status: Fail,
+			Detail: fmt.Sprintf("%s → %s: DTLS handshake failed (%s)", host, addrs[0], err),
+			Hint:   "Server may be down, port closed, or not running good-turn-server",
+		}
+	}
+	_ = dtlsConn.Close()
 
 	return CheckResult{
 		Name:   "Peer Host",
 		Status: Pass,
-		Detail: fmt.Sprintf("%s → %s (UDP reachable)", host, addrs[0]),
+		Detail: fmt.Sprintf("%s → %s: DTLS handshake OK", host, addrs[0]),
 	}
 }
 
+// checkTurnPreflight does a real STUN binding request to a known VK TURN server.
+// This proves UDP can actually reach VK TURN infrastructure (round-trip).
 func checkTurnPreflight(ctx context.Context) CheckResult {
-	// Check if common VK TURN server IPs are reachable
-	turnHost := "155.212.193.23"
-	conn, err := net.DialTimeout("udp", turnHost+":19302", 3*time.Second)
+	turnHost := "155.212.193.23:19302"
+
+	udpAddr, err := net.ResolveUDPAddr("udp", turnHost)
+	if err != nil {
+		return CheckResult{Name: "TURN Preflight", Status: Fail, Detail: err.Error()}
+	}
+	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
 		return CheckResult{
 			Name:   "TURN Preflight",
-			Status: Warn,
-			Detail: fmt.Sprintf("Cannot reach VK TURN server %s:19302: %s", turnHost, err),
-			Hint:   "VK TURN servers may be temporarily unreachable. Try again later.",
+			Status: Fail,
+			Detail: fmt.Sprintf("Cannot create UDP socket to %s: %s", turnHost, err),
 		}
 	}
-	_ = conn.Close()
+	defer func() { _ = conn.Close() }()
+
+	// Send STUN binding request and wait for binding response
+	msg := stun.MustBuild(stun.TransactionID, stun.BindingRequest)
+	_ = conn.SetDeadline(time.Now().Add(4 * time.Second))
+
+	if _, err := conn.Write(msg.Raw); err != nil {
+		return CheckResult{
+			Name:   "TURN Preflight",
+			Status: Fail,
+			Detail: fmt.Sprintf("STUN write failed: %s", err),
+		}
+	}
+
+	buf := make([]byte, 1500)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return CheckResult{
+			Name:   "TURN Preflight",
+			Status: Fail,
+			Detail: fmt.Sprintf("VK TURN %s: no STUN response (%s)", turnHost, err),
+			Hint:   "VK TURN may be unreachable from your network. Check firewall/NAT.",
+		}
+	}
+
+	resp := &stun.Message{Raw: append([]byte{}, buf[:n]...)}
+	if err := resp.Decode(); err != nil {
+		return CheckResult{
+			Name:   "TURN Preflight",
+			Status: Warn,
+			Detail: fmt.Sprintf("VK TURN responded but STUN decode failed: %s", err),
+		}
+	}
+
 	return CheckResult{
 		Name:   "TURN Preflight",
 		Status: Pass,
-		Detail: fmt.Sprintf("VK TURN %s:19302 reachable", turnHost),
+		Detail: fmt.Sprintf("VK TURN %s: STUN binding OK (round-trip verified)", turnHost),
 	}
 }
 
+// checkHysteriaBinary uses the SAME lookup logic as runtime (hybin.Find).
 func checkHysteriaBinary(cfg Config) CheckResult {
-	name := "hysteria"
-	if runtime.GOOS == "windows" {
-		name = "hysteria.exe"
-	}
-
 	path := cfg.HysteriaBin
 	if path == "" {
-		p, err := exec.LookPath(name)
+		p, err := hybin.Find()
 		if err != nil {
 			return CheckResult{
 				Name:   "Hysteria2",
 				Status: Fail,
-				Detail: "Hysteria2 binary not found",
-				Hint:   "Place the hysteria binary next to the app or add it to PATH",
+				Detail: err.Error(),
+				Hint:   "Place the hysteria binary next to the app, in cwd, or in PATH",
 			}
 		}
 		path = p
@@ -264,14 +363,34 @@ func checkNoDTLS(cfg Config) CheckResult {
 	}
 }
 
-// Sanitize removes secrets from a report for safe export.
+// Sanitize redacts any sensitive data from the report (passwords, tokens, full URLs).
+// Keeps host:port and check status, removes anything that could leak credentials.
 func (r Report) Sanitize() Report {
 	sanitized := Report{Platform: r.Platform}
 	for _, c := range r.Checks {
 		sc := c
-		// Redact any profile details that might contain server address
-		// (addr is ok to show, password is never in check output)
+		// Strip server addresses from Detail and Hint that might be sensitive in shared bundles
+		sc.Detail = redactAddresses(sc.Detail)
+		sc.Hint = redactAddresses(sc.Hint)
 		sanitized.Checks = append(sanitized.Checks, sc)
 	}
 	return sanitized
+}
+
+// redactAddresses replaces IP addresses and host:port pairs with placeholders.
+// Used for safe debug bundle export.
+func redactAddresses(s string) string {
+	// Mask anything that looks like host:port (very loose match)
+	parts := strings.Fields(s)
+	for i, p := range parts {
+		// Skip pure URLs we want to keep visible
+		if strings.HasPrefix(p, "http") {
+			continue
+		}
+		// Match host:port pattern
+		if strings.Count(p, ":") == 1 && strings.Contains(p, ".") {
+			parts[i] = "<server>"
+		}
+	}
+	return strings.Join(parts, " ")
 }

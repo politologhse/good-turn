@@ -332,6 +332,11 @@ func (a *App) RunDoctor(profileStr, vkLink string, socksPort int, noDtls bool) d
 	})
 }
 
+// RunDoctorSanitized returns a redacted copy safe for sharing in bug reports.
+func (a *App) RunDoctorSanitized(report doctor.Report) doctor.Report {
+	return report.Sanitize()
+}
+
 // CaptchaCompleted is called from frontend after user manually verified captcha.
 func (a *App) CaptchaCompleted() {
 	a.log("Manual captcha verification acknowledged")

@@ -13,18 +13,18 @@ services:
   good-turn:
     build: .
     restart: unless-stopped
-    ports:
-      - "56000:56000/udp"
     environment:
       CONNECT_ADDR: "127.0.0.1:443"
+      HEALTH_ADDR: "127.0.0.1:56001"
     depends_on:
       - hysteria
     network_mode: host
     healthcheck:
-      test: ["CMD", "true"]
+      test: ["CMD", "/app/good-turn-server", "-health-probe", "127.0.0.1:56001"]
       interval: 30s
       timeout: 5s
       retries: 3
+      start_period: 10s
 
 volumes:
   hysteria-certs:

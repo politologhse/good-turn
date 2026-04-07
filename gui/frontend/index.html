@@ -247,6 +247,14 @@
                 <input type="checkbox" id="noDtls" class="toggle">
               </div>
             </section>
+
+            <section class="settings-cluster">
+              <h3>Diagnostics</h3>
+              <div class="settings-row">
+                <label>Connection doctor</label>
+                <button class="btn-secondary" id="doctorBtn" type="button">Run diagnostics</button>
+              </div>
+            </section>
           </div>
         </details>
 
@@ -279,6 +287,19 @@
         <div class="modal-buttons">
           <button class="btn-secondary" id="importCancel" type="button">Cancel</button>
           <button class="btn-primary" id="importOk" type="button">Import</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="doctorModal">
+      <div class="modal">
+        <p class="section-tag">Diagnostics</p>
+        <h3>Connection Doctor</h3>
+        <p id="doctorStatus">Running diagnostics...</p>
+        <div id="doctorResults" class="doctor-results"></div>
+        <div class="modal-buttons">
+          <button class="btn-secondary" id="doctorCopy" type="button">Copy report</button>
+          <button class="btn-primary" id="doctorClose" type="button">Close</button>
         </div>
       </div>
     </div>

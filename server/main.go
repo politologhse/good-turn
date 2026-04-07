@@ -25,7 +25,8 @@ func main() {
 
 	// Utility flags
 	genConfig := flag.Bool("generate-config", false, "generate gt:// config string and exit")
-	healthCheck := flag.Bool("health", false, "check if server can bind and exit")
+	healthAddr := flag.String("health-addr", "", "TCP address for healthcheck endpoint (e.g. 127.0.0.1:56001)")
+	healthProbe := flag.String("health-probe", "", "probe a TCP healthcheck endpoint and exit (e.g. 127.0.0.1:56001)")
 	gcAddr := flag.String("addr", "", "server address for config (e.g. 185.1.2.3:56000)")
 	gcPass := flag.String("pass", "", "hysteria2 password for config")
 	gcSNI := flag.String("sni", "hy2", "SNI for config")
@@ -48,21 +49,23 @@ func main() {
 		return
 	}
 
-	// Health check mode
-	if *healthCheck {
-		addr, err := net.ResolveUDPAddr("udp", *listen)
+	// Health probe mode: probe a running server's healthcheck endpoint
+	if *healthProbe != "" {
+		conn, err := net.DialTimeout("tcp", *healthProbe, 3*time.Second)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "FAIL: cannot resolve %s: %s\n", *listen, err)
+			fmt.Fprintf(os.Stderr, "FAIL: %s unreachable: %s\n", *healthProbe, err)
 			os.Exit(1)
 		}
-		ln, err := net.ListenPacket("udp", addr.String())
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "FAIL: cannot bind %s: %s\n", addr, err)
-			os.Exit(1)
+		_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+		buf := make([]byte, 16)
+		n, _ := conn.Read(buf)
+		_ = conn.Close()
+		if n > 0 && string(buf[:n]) == "OK\n" {
+			fmt.Printf("OK: %s healthy\n", *healthProbe)
+			return
 		}
-		_ = ln.Close()
-		fmt.Printf("OK: can bind %s\n", addr)
-		return
+		fmt.Fprintf(os.Stderr, "FAIL: %s did not respond OK\n", *healthProbe)
+		os.Exit(1)
 	}
 
 	if *connect == "" {
@@ -102,6 +105,29 @@ func main() {
 		}
 		certificate = cert
 		log.Printf("Generated ephemeral DTLS certificate")
+	}
+
+	// Optional TCP healthcheck endpoint (returns "OK\n" to any connection)
+	if *healthAddr != "" {
+		hln, err := net.Listen("tcp", *healthAddr)
+		if err != nil {
+			log.Fatalf("healthcheck listen %s: %s", *healthAddr, err)
+		}
+		log.Printf("Healthcheck listening on %s", *healthAddr)
+		go func() {
+			for {
+				c, err := hln.Accept()
+				if err != nil {
+					return
+				}
+				go func(conn net.Conn) {
+					defer func() { _ = conn.Close() }()
+					_ = conn.SetWriteDeadline(time.Now().Add(2 * time.Second))
+					_, _ = conn.Write([]byte("OK\n"))
+				}(c)
+			}
+		}()
+		context.AfterFunc(ctx, func() { _ = hln.Close() })
 	}
 
 	//

@@ -1342,3 +1342,26 @@ select.sm-input {
     text-align: left;
   }
 }
+
+/* Doctor results */
+.doctor-results {
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 12px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.doctor-row {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid rgba(0,0,0,0.1);
+  background: rgba(255,255,255,0.6);
+  font-size: 13px;
+}
+.doctor-row--pass { border-color: #6dd16d; background: rgba(109,209,109,0.12); }
+.doctor-row--warn { border-color: #f4c34a; background: rgba(244,195,74,0.12); }
+.doctor-row--fail { border-color: #ef6a6a; background: rgba(239,106,106,0.12); }
+.doctor-row-head { font-weight: 600; margin-bottom: 4px; }
+.doctor-detail { color: #444; font-family: ui-monospace,Menlo,monospace; font-size: 12px; }
+.doctor-hint { margin-top: 4px; font-style: italic; color: #666; font-size: 12px; }

@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
-	"runtime"
 	"strings"
+
+	"github.com/politologhse/good-turn/internal/hybin"
 )
 
 type HysteriaManager struct {
@@ -23,31 +23,7 @@ func NewHysteriaManager(logf logFunc) *HysteriaManager {
 }
 
 func (h *HysteriaManager) FindBinary() (string, error) {
-	name := "hysteria"
-	if runtime.GOOS == "windows" {
-		name = "hysteria.exe"
-	}
-
-	// Check next to our executable
-	if exePath, err := os.Executable(); err == nil {
-		candidate := filepath.Join(filepath.Dir(exePath), name)
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate, nil
-		}
-	}
-
-	// Check current directory
-	if _, err := os.Stat(name); err == nil {
-		abs, _ := filepath.Abs(name)
-		return abs, nil
-	}
-
-	// Check PATH
-	if p, err := exec.LookPath(name); err == nil {
-		return p, nil
-	}
-
-	return "", fmt.Errorf("hysteria binary not found. Place it next to the app or add to PATH")
+	return hybin.Find()
 }
 
 type HysteriaConfig struct {

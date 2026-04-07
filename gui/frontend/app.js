@@ -42,6 +42,12 @@ const importModal = $('importModal');
 const importInput = $('importInput');
 const importCancel = $('importCancel');
 const importOk = $('importOk');
+const doctorBtn = $('doctorBtn');
+const doctorModal = $('doctorModal');
+const doctorStatus = $('doctorStatus');
+const doctorResults = $('doctorResults');
+const doctorClose = $('doctorClose');
+const doctorCopy = $('doctorCopy');
 
 const REQUIRED_FIELDS = ['vkLink'];
 const STORAGE_KEY = 'goodturn-config';
@@ -309,6 +315,8 @@ importOk.addEventListener('click', async () => {
       try { sessionStorage.setItem('gt-pw', p.password); } catch (_) {}
     }
     if (p.sni) el.sni.value = p.sni;
+    // Stash raw profile string so Doctor can use it without re-encoding
+    try { sessionStorage.setItem('gt-profile-raw', raw); } catch (_) {}
     log('Profile imported: server=' + (p.addr || '') + ', sni=' + (p.sni || ''));
     saveConfig();
     refreshIdleUi();
@@ -319,6 +327,65 @@ importOk.addEventListener('click', async () => {
 
 importModal.addEventListener('click', event => {
   if (event.target === importModal) importModal.classList.remove('visible');
+});
+
+// === Connection Doctor ===
+function statusEmoji(status) {
+  if (status === 'pass') return '✅';
+  if (status === 'warn') return '⚠️';
+  return '❌';
+}
+
+let lastDoctorReport = null;
+
+doctorBtn.addEventListener('click', async () => {
+  doctorResults.innerHTML = '';
+  doctorStatus.textContent = 'Running diagnostics...';
+  doctorModal.classList.add('visible');
+
+  const profileStr = sessionStorage.getItem('gt-profile-raw') || '';
+  const vkLink = el.vkLink.value.trim();
+  const socksPort = parseInt(el.socksPort.value, 10) || 1080;
+  const noDtls = el.noDtls.checked;
+
+  try {
+    const report = await window.go.main.App.RunDoctor(profileStr, vkLink, socksPort, noDtls);
+    lastDoctorReport = report;
+
+    doctorStatus.textContent = 'Platform: ' + (report.platform || 'unknown');
+    const html = (report.checks || []).map(c => {
+      const hint = c.hint ? '<div class="doctor-hint">' + c.hint + '</div>' : '';
+      return '<div class="doctor-row doctor-row--' + c.status + '">' +
+        '<div class="doctor-row-head">' + statusEmoji(c.status) + ' <strong>' + c.name + '</strong></div>' +
+        '<div class="doctor-detail">' + c.detail + '</div>' +
+        hint +
+        '</div>';
+    }).join('');
+    doctorResults.innerHTML = html;
+  } catch (e) {
+    doctorStatus.textContent = 'Doctor failed: ' + e;
+  }
+});
+
+doctorClose.addEventListener('click', () => doctorModal.classList.remove('visible'));
+doctorModal.addEventListener('click', event => {
+  if (event.target === doctorModal) doctorModal.classList.remove('visible');
+});
+
+doctorCopy.addEventListener('click', async () => {
+  if (!lastDoctorReport) return;
+  // Copy sanitized version (server addresses redacted)
+  try {
+    const sanitized = await window.go.main.App.RunDoctorSanitized(lastDoctorReport);
+    const text = JSON.stringify(sanitized, null, 2);
+    await navigator.clipboard.writeText(text);
+    doctorStatus.textContent = 'Sanitized report copied to clipboard';
+  } catch (e) {
+    // Fallback: copy what we have, redacted client-side
+    const text = JSON.stringify(lastDoctorReport, null, 2);
+    try { await navigator.clipboard.writeText(text); } catch (_) {}
+    doctorStatus.textContent = 'Report copied (raw)';
+  }
 });
 
 // === Persist config ===

@@ -2,6 +2,7 @@ package doctor
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +55,22 @@ func TestCheckSocksPortAvailable(t *testing.T) {
 	r := checkSocksPort(Config{SocksPort: 19876})
 	if r.Status != Pass {
 		t.Errorf("free port: %s %s", r.Status, r.Detail)
+	}
+}
+
+func TestSanitizeRedactsAddresses(t *testing.T) {
+	r := Report{
+		Platform: "darwin/arm64",
+		Checks: []CheckResult{
+			{Name: "Profile", Status: Pass, Detail: "Valid profile → 185.1.2.3:56000 (SNI: hy2)"},
+			{Name: "Peer Host", Status: Pass, Detail: "example.com → 185.1.2.3: DTLS handshake OK"},
+		},
+	}
+	s := r.Sanitize()
+	for _, c := range s.Checks {
+		if strings.Contains(c.Detail, "185.1.2.3:56000") {
+			t.Errorf("sanitize did not redact host:port: %q", c.Detail)
+		}
 	}
 }
 
