@@ -182,12 +182,12 @@ func checkPeerReachability(ctx context.Context, cfg Config) CheckResult {
 	}
 
 	// REAL reachability: DTLS handshake to the good-turn server.
-	// This proves the server is alive AND speaks DTLS, not just that the OS made a UDP socket.
+	// Use unconnected PacketConn (matches production relay) — DTLS uses WriteTo internally.
 	udpAddr, err := net.ResolveUDPAddr("udp", p.Addr)
 	if err != nil {
 		return CheckResult{Name: "Peer Host", Status: Fail, Detail: err.Error()}
 	}
-	udp, err := net.DialUDP("udp", nil, udpAddr)
+	udp, err := net.ListenPacket("udp", ":0")
 	if err != nil {
 		return CheckResult{
 			Name:   "Peer Host",
