@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -201,9 +202,11 @@ func checkPeerReachability(ctx context.Context, cfg Config) CheckResult {
 		return CheckResult{Name: "Peer Host", Status: Warn, Detail: fmt.Sprintf("cert gen: %s", err)}
 	}
 	dtlsCfg := &dtls.Config{
-		Certificates:       []tls.Certificate{cert},
-		InsecureSkipVerify: true,
-		CipherSuites:       []dtls.CipherSuiteID{dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+		Certificates:          []tls.Certificate{cert},
+		InsecureSkipVerify:    true,
+		ExtendedMasterSecret:  dtls.RequireExtendedMasterSecret,
+		CipherSuites:          []dtls.CipherSuiteID{dtls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+		ConnectionIDGenerator: dtls.OnlySendCIDGenerator(),
 	}
 	dtlsConn, err := dtls.Client(udp, udpAddr, dtlsCfg)
 	if err != nil {
@@ -377,20 +380,10 @@ func (r Report) Sanitize() Report {
 	return sanitized
 }
 
+var addressPattern = regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?\b|\b[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+:\d{1,5}\b`)
+
 // redactAddresses replaces IP addresses and host:port pairs with placeholders.
 // Used for safe debug bundle export.
 func redactAddresses(s string) string {
-	// Mask anything that looks like host:port (very loose match)
-	parts := strings.Fields(s)
-	for i, p := range parts {
-		// Skip pure URLs we want to keep visible
-		if strings.HasPrefix(p, "http") {
-			continue
-		}
-		// Match host:port pattern
-		if strings.Count(p, ":") == 1 && strings.Contains(p, ".") {
-			parts[i] = "<server>"
-		}
-	}
-	return strings.Join(parts, " ")
+	return addressPattern.ReplaceAllString(s, "<server>")
 }

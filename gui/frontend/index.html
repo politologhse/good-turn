@@ -8,298 +8,209 @@
 </head>
 <body>
   <div class="app" id="app">
-    <div class="bg-goop bg-goop--one" aria-hidden="true"></div>
-    <div class="bg-goop bg-goop--two" aria-hidden="true"></div>
-    <div class="bg-goop bg-goop--three" aria-hidden="true"></div>
-
-    <div class="titlebar">
-      <div class="titlebar-strip">
-        <span class="frame-badge">VK RELAY LAB</span>
-        <div class="frame-lights" aria-hidden="true">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Good TURN</p>
+        <h1>Relay Client</h1>
       </div>
-    </div>
+      <div class="status-bar" id="statusBar">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </header>
 
-    <div class="app-frame">
-      <header class="console-header panel">
-        <div class="brand-block">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 64 64" fill="none">
-              <path d="M32 7C18.4 7 7 18.4 7 32s11.4 25 25 25 25-11.4 25-25S45.6 7 32 7z" stroke="currentColor" stroke-width="2.5"/>
-              <path d="M18 30c3-8 12-14 24-11 7 1.8 8 9 5 14-3.5 6-10.5 11-21 12" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-              <path d="M19 42c2.4-1.8 4.8-2.5 7.2-2.2 1.7.3 3.2 1.1 4.6 2.3" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-              <circle cx="43" cy="22" r="3" fill="currentColor"/>
-              <circle cx="23" cy="24" r="2.5" fill="currentColor"/>
-            </svg>
+    <main class="content">
+      <section class="connect-panel panel">
+        <div class="connect-head">
+          <div>
+            <p class="section-label">Connection</p>
+            <h2>Profile + VK link</h2>
           </div>
-          <div class="brand-copy">
-            <p class="section-tag">Portal Relay Console</p>
-            <h1>Good TURN</h1>
-            <p class="brand-subtitle">Клиент для маскировки трафика под VK-звонок и проброса его через relay-профиль.</p>
-            <div class="brand-stickers" aria-hidden="true">
-              <span class="sticker sticker--pink">totally normal</span>
-              <span class="sticker sticker--yellow">slime calibrated</span>
-            </div>
-          </div>
+          <label class="inline-toggle" for="systemProxy">
+            <span>System proxy</span>
+            <input type="checkbox" id="systemProxy" class="toggle" checked>
+          </label>
         </div>
 
-        <div class="header-tools">
-          <div class="status-bar" id="statusBar">
-            <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Coordinates needed</span>
-          </div>
-
-          <button class="import-btn" id="importBtn" type="button">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            Import profile
-          </button>
-        </div>
-      </header>
-
-      <main class="console-body">
-        <section class="reactor-card panel">
-          <div class="reactor-splat reactor-splat--left" aria-hidden="true"></div>
-          <div class="reactor-splat reactor-splat--right" aria-hidden="true"></div>
-
-          <div class="reactor-shell">
-            <div class="reactor-core">
-              <div class="reactor-rings" aria-hidden="true"></div>
-              <button class="power-btn" id="powerBtn" type="button" aria-label="Toggle connection">
-                <div class="power-btn__core">
-                  <div class="power-icon">
-                    <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round">
-                      <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-                      <line x1="12" y1="2" x2="12" y2="12"/>
-                    </svg>
-                  </div>
-                </div>
-              </button>
-              <div class="power-label" id="powerLabel">Prime console</div>
-              <div class="reactor-badges" aria-hidden="true">
-                <span class="sticker sticker--green">chaos ready</span>
-                <span class="sticker sticker--blue" id="reactorMood">portal mood: sleepy</span>
-              </div>
-            </div>
-
-            <div class="reactor-copy">
-              <p class="section-tag">Reactor Core</p>
-              <h2>Ignition sequence</h2>
-              <p class="reactor-text" id="reactorText">Load a Hysteria profile and a live VK call link to arm the console.</p>
-            </div>
-          </div>
-
-          <div class="conn-info" id="connInfo">
-            <div class="info-item metric-card">
-              <span class="info-label">SOCKS5</span>
-              <span class="info-value" id="infoSocks">127.0.0.1:1080</span>
-            </div>
-            <div class="info-item metric-card">
-              <span class="info-label">HTTP</span>
-              <span class="info-value" id="infoHttp">127.0.0.1:8080</span>
-            </div>
-            <div class="info-item metric-card">
-              <span class="info-label">UPLINK</span>
-              <span class="info-value" id="infoUp">0 B</span>
-            </div>
-            <div class="info-item metric-card">
-              <span class="info-label">DOWNLINK</span>
-              <span class="info-value" id="infoDown">0 B</span>
-            </div>
-            <div class="info-item metric-card">
-              <span class="info-label">UPTIME</span>
-              <span class="info-value" id="infoUptime">0s</span>
-            </div>
-            <div class="info-item metric-card">
-              <span class="info-label">PROFILE</span>
-              <span class="info-value" id="infoProfile">TCP · x1</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="control-card panel" id="controlCard">
-          <div class="panel-head">
+        <div class="profile-card field-card field-card--profile" id="profileCard">
+          <div class="profile-title">
             <div>
-              <p class="section-tag">Coordinates</p>
-              <h2 class="panel-title">Feed the machine</h2>
-              <p class="panel-note">Два ингредиента: профиль Hysteria и живая VK-ссылка.</p>
+              <span class="field-kicker">Hysteria profile</span>
+              <strong id="profileBadge">Profile missing</strong>
             </div>
+            <button class="secondary-button" id="profileImportBtn" type="button">Import</button>
+          </div>
+          <p class="profile-state" id="profileState">Import the gt:// profile from your server.</p>
+          <p class="profile-meta" id="profileMeta">Relay address and password will be filled automatically.</p>
+        </div>
 
-            <label class="proxy-toggle" for="systemProxy">
-              <span>System proxy</span>
-              <input type="checkbox" id="systemProxy" class="toggle">
+        <label class="field-card" for="vkLink">
+          <span class="field-kicker">VK call link</span>
+          <div class="input-group">
+            <input type="text" id="vkLink" placeholder="https://vk.com/call/join/..." autocomplete="off">
+          </div>
+        </label>
+
+        <div class="action-row">
+          <button class="power-btn" id="powerBtn" type="button">
+            <span id="powerLabel">Connect</span>
+          </button>
+          <button class="ghost-button" id="importBtn" type="button">Import profile</button>
+        </div>
+
+        <p class="reactor-text" id="reactorText">Import a profile and paste a live VK call link.</p>
+        <p class="visually-hidden" id="reactorMood">idle</p>
+      </section>
+
+      <section class="metrics-panel panel conn-info" id="connInfo">
+        <div class="metric">
+          <span>SOCKS5</span>
+          <strong id="infoSocks">127.0.0.1:1080</strong>
+        </div>
+        <div class="metric">
+          <span>HTTP</span>
+          <strong id="infoHttp">127.0.0.1:8080</strong>
+        </div>
+        <div class="metric">
+          <span>Up</span>
+          <strong id="infoUp">0 B</strong>
+        </div>
+        <div class="metric">
+          <span>Down</span>
+          <strong id="infoDown">0 B</strong>
+        </div>
+        <div class="metric">
+          <span>Uptime</span>
+          <strong id="infoUptime">0s</strong>
+        </div>
+        <div class="metric">
+          <span>Mode</span>
+          <strong id="infoProfile">TCP · x2</strong>
+        </div>
+      </section>
+
+      <details class="panel settings-card" id="settingsCard">
+        <summary>
+          <span>
+            <small>Settings</small>
+            Advanced connection options
+          </span>
+        </summary>
+
+        <div class="settings-grid">
+          <section class="settings-cluster">
+            <h3>Profile</h3>
+            <label class="settings-row" for="peerAddr">
+              <span>Relay address</span>
+              <input type="text" id="peerAddr" placeholder="185.1.2.3:56000" class="sm-input">
             </label>
-          </div>
-
-          <div class="fields" id="fields">
-            <div class="field-card field-card--profile" id="profileCard">
-              <span class="field-copy">
-                <span class="field-kicker">Relay profile</span>
-                <span class="field-label">Hysteria profile</span>
-              </span>
-              <div class="profile-shell">
-                <div class="profile-summary">
-                  <span class="profile-badge" id="profileBadge">Profile missing</span>
-                  <button class="profile-import-btn" id="profileImportBtn" type="button">Import profile</button>
-                </div>
-                <p class="profile-state" id="profileState">Import the `gt://...` profile from the server to fill the relay address and password.</p>
-                <p class="profile-meta" id="profileMeta">Адрес relay и пароль будут подхвачены автоматически.</p>
-              </div>
-            </div>
-
-            <label class="field-card" for="vkLink">
-              <span class="field-copy">
-                <span class="field-kicker">Camouflage signal</span>
-                <span class="field-label">VK call link</span>
-              </span>
-              <div class="input-group">
-                <div class="input-icon">
-                  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                  </svg>
-                </div>
-                <input type="text" id="vkLink" placeholder="https://vk.com/call/join/..." autocomplete="off">
-              </div>
+            <label class="settings-row" for="hyPassword">
+              <span>Password</span>
+              <input type="password" id="hyPassword" placeholder="Filled from profile" class="sm-input">
             </label>
+            <label class="settings-row" for="sni">
+              <span>SNI</span>
+              <input type="text" id="sni" placeholder="hy2" class="sm-input">
+            </label>
+          </section>
 
-          </div>
-        </section>
+          <section class="settings-cluster">
+            <h3>Performance</h3>
+            <label class="settings-row" for="turnMode">
+              <span>TURN mode</span>
+              <select id="turnMode" class="sm-input">
+                <option value="tcp">TCP</option>
+                <option value="udp">UDP</option>
+              </select>
+            </label>
+            <label class="settings-row" for="streams">
+              <span>Streams</span>
+              <input type="number" id="streams" value="2" min="1" max="32" class="sm-input">
+            </label>
+          </section>
 
-        <details class="settings-card panel" id="settingsCard">
-          <summary>
-            <div class="summary-copy">
-              <span class="section-tag">Lab Controls</span>
-              <span class="summary-title">Chaotic knobs, pipes and safety-ish switches</span>
+          <section class="settings-cluster">
+            <h3>Local ports</h3>
+            <label class="settings-row" for="socksPort">
+              <span>SOCKS5</span>
+              <input type="number" id="socksPort" value="1080" class="sm-input">
+            </label>
+            <label class="settings-row" for="httpPort">
+              <span>HTTP</span>
+              <input type="number" id="httpPort" value="8080" class="sm-input">
+            </label>
+          </section>
+
+          <section class="settings-cluster">
+            <h3>Overrides</h3>
+            <label class="settings-row" for="turnHost">
+              <span>TURN host</span>
+              <input type="text" id="turnHost" placeholder="auto" class="sm-input">
+            </label>
+            <label class="settings-row" for="turnPort">
+              <span>TURN port</span>
+              <input type="text" id="turnPort" placeholder="auto" class="sm-input">
+            </label>
+          </section>
+
+          <section class="settings-cluster">
+            <h3>Security</h3>
+            <label class="settings-row settings-row--toggle" for="insecure">
+              <span>Skip TLS verify</span>
+              <input type="checkbox" id="insecure" class="toggle">
+            </label>
+            <label class="settings-row settings-row--toggle" for="noDtls">
+              <span>No DTLS</span>
+              <input type="checkbox" id="noDtls" class="toggle">
+            </label>
+          </section>
+
+          <section class="settings-cluster">
+            <h3>Diagnostics</h3>
+            <div class="settings-row">
+              <span>Connection doctor</span>
+              <button class="secondary-button" id="doctorBtn" type="button">Run</button>
             </div>
-          </summary>
+          </section>
+        </div>
+      </details>
 
-          <div class="settings-body">
-            <section class="settings-cluster">
-              <h3>Profile</h3>
-              <div class="settings-row">
-                <label for="peerAddr">Relay address</label>
-                <input type="text" id="peerAddr" placeholder="185.1.2.3:56000" class="sm-input">
-              </div>
-              <div class="settings-row">
-                <label for="hyPassword">Password</label>
-                <input type="password" id="hyPassword" placeholder="Filled from config" class="sm-input">
-              </div>
-              <div class="settings-row">
-                <label for="sni">SNI</label>
-                <input type="text" id="sni" placeholder="auto" class="sm-input">
-              </div>
-            </section>
-
-            <section class="settings-cluster">
-              <h3>Transport</h3>
-              <div class="settings-row">
-                <label for="turnMode">TURN mode</label>
-                <select id="turnMode" class="sm-input">
-                  <option value="tcp">TCP</option>
-                  <option value="udp">UDP</option>
-                </select>
-              </div>
-              <div class="settings-row">
-                <label for="streams">Streams</label>
-                <input type="number" id="streams" value="1" min="1" max="32" class="sm-input">
-              </div>
-            </section>
-
-            <section class="settings-cluster">
-              <h3>Ports</h3>
-              <div class="settings-row">
-                <label for="socksPort">SOCKS5 port</label>
-                <input type="number" id="socksPort" value="1080" class="sm-input">
-              </div>
-              <div class="settings-row">
-                <label for="httpPort">HTTP port</label>
-                <input type="number" id="httpPort" value="8080" class="sm-input">
-              </div>
-            </section>
-
-            <section class="settings-cluster">
-              <h3>Overrides</h3>
-              <div class="settings-row">
-                <label for="turnHost">TURN host</label>
-                <input type="text" id="turnHost" placeholder="auto" class="sm-input">
-              </div>
-              <div class="settings-row">
-                <label for="turnPort">TURN port</label>
-                <input type="text" id="turnPort" placeholder="auto" class="sm-input">
-              </div>
-            </section>
-
-            <section class="settings-cluster">
-              <h3>Security</h3>
-              <div class="settings-row settings-row--toggle">
-                <label for="insecure">Skip TLS verify</label>
-                <input type="checkbox" id="insecure" class="toggle">
-              </div>
-              <div class="settings-row settings-row--toggle">
-                <label for="noDtls">No DTLS</label>
-                <input type="checkbox" id="noDtls" class="toggle">
-              </div>
-            </section>
-
-            <section class="settings-cluster">
-              <h3>Diagnostics</h3>
-              <div class="settings-row">
-                <label>Connection doctor</label>
-                <button class="btn-secondary" id="doctorBtn" type="button">Run diagnostics</button>
-              </div>
-            </section>
-          </div>
-        </details>
-
-        <details class="log-card panel">
-          <summary>
-            <div class="summary-copy">
-              <span class="section-tag">Signal Trace</span>
-              <span class="summary-title">Runtime gossip, hisses and relay squeaks</span>
-            </div>
-          </summary>
-
-          <div class="log-body">
-            <div class="log-legend" aria-hidden="true">
-              <span class="legend-pill">INFO</span>
-              <span class="legend-pill legend-pill--warn">WARN</span>
-              <span class="legend-pill legend-pill--error">ERROR</span>
-            </div>
-            <textarea id="logArea" readonly></textarea>
-          </div>
-        </details>
-      </main>
-    </div>
+      <details class="panel log-card">
+        <summary>
+          <span>
+            <small>Log</small>
+            Runtime events
+          </span>
+        </summary>
+        <textarea id="logArea" readonly></textarea>
+      </details>
+    </main>
 
     <div class="modal-overlay" id="importModal">
       <div class="modal">
-        <p class="section-tag">Import Profile</p>
-        <h3>Load profile</h3>
-        <p>Paste the `gt://...` profile from the server and the relay address, password and SNI will be filled automatically.</p>
+        <div class="modal-head">
+          <p class="section-label">Profile import</p>
+          <h3>Paste gt:// profile</h3>
+        </div>
         <textarea id="importInput" rows="4" placeholder="gt://eyJ..."></textarea>
         <div class="modal-buttons">
-          <button class="btn-secondary" id="importCancel" type="button">Cancel</button>
-          <button class="btn-primary" id="importOk" type="button">Import</button>
+          <button class="ghost-button" id="importCancel" type="button">Cancel</button>
+          <button class="power-btn power-btn--small" id="importOk" type="button">Import</button>
         </div>
       </div>
     </div>
 
     <div class="modal-overlay" id="doctorModal">
       <div class="modal">
-        <p class="section-tag">Diagnostics</p>
-        <h3>Connection Doctor</h3>
-        <p id="doctorStatus">Running diagnostics...</p>
+        <div class="modal-head">
+          <p class="section-label">Diagnostics</p>
+          <h3>Connection Doctor</h3>
+        </div>
+        <p class="modal-status" id="doctorStatus">Running diagnostics...</p>
         <div id="doctorResults" class="doctor-results"></div>
         <div class="modal-buttons">
-          <button class="btn-secondary" id="doctorCopy" type="button">Copy report</button>
-          <button class="btn-primary" id="doctorClose" type="button">Close</button>
+          <button class="ghost-button" id="doctorCopy" type="button">Copy report</button>
+          <button class="power-btn power-btn--small" id="doctorClose" type="button">Close</button>
         </div>
       </div>
     </div>

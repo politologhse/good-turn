@@ -73,7 +73,7 @@ function resetMetricsDisplay() {
 function refreshStaticInfo() {
   const sp = parseInt(el.socksPort.value, 10) || 1080;
   const hp = parseInt(el.httpPort.value, 10) || 8080;
-  const streams = Math.max(parseInt(el.streams.value, 10) || 1, 1);
+  const streams = Math.max(parseInt(el.streams.value, 10) || 2, 1);
   const mode = (el.turnMode.value || 'tcp').toUpperCase();
 
   infoSocks.textContent = '127.0.0.1:' + sp;
@@ -94,10 +94,10 @@ function refreshProfileInfo() {
 
   if (ready) {
     profileState.textContent = addr;
-    profileMeta.textContent = 'SNI: ' + (sni || 'auto') + ' · пароль подхвачен из конфига';
+    profileMeta.textContent = 'SNI: ' + (sni || 'auto') + ' · password loaded from profile';
   } else {
-    profileState.textContent = 'Import the `gt://...` profile from the server to fill the relay address and password.';
-    profileMeta.textContent = 'Адрес relay и пароль будут подхвачены автоматически.';
+    profileState.textContent = 'Import the gt:// profile from your server.';
+    profileMeta.textContent = 'Relay address and password will be filled automatically.';
   }
 }
 
@@ -139,45 +139,45 @@ function getUiCopy(newState, message) {
 
   if (newState === 'connecting') {
     return {
-      button: 'Warping goo',
-      status: 'Brewing portal',
-      reactor: 'The relay is wobbling into shape through VK cover traffic. Give the goo a second.',
-      mood: 'portal mood: fizzy',
+      button: 'Connecting',
+      status: 'Connecting',
+      reactor: 'Starting relay, Hysteria2 and local proxy.',
+      mood: 'connecting',
     };
   }
 
   if (newState === 'connected') {
     return {
-      button: 'Portal stable',
-      status: message || 'Portal open',
-      reactor: 'The tunnel is alive, drooling neon and ready to forward traffic through the glowing ports below.',
-      mood: 'portal mood: spicy',
+      button: 'Disconnect',
+      status: message || 'Connected',
+      reactor: 'Traffic is routed through the local SOCKS5 and HTTP ports.',
+      mood: 'connected',
     };
   }
 
   if (newState === 'error') {
     return {
-      button: 'Kick again',
-      status: message || 'Portal burped',
-      reactor: message || 'The portal sneezed itself shut. Check the profile, VK link or transport knobs and poke it again.',
-      mood: 'portal mood: grumpy',
+      button: 'Retry',
+      status: message || 'Error',
+      reactor: message || 'Check the profile, VK link and diagnostics report.',
+      mood: 'error',
     };
   }
 
   if (ready) {
     return {
-      button: 'Kick the portal',
-      status: 'Portal primed',
-      reactor: 'Profile loaded and VK link is in place. Hit the reactor and let the tunnel ooze into place.',
-      mood: 'portal mood: hungry',
+      button: 'Connect',
+      status: 'Ready',
+      reactor: 'Profile and VK link are ready. Balanced mode uses 2 streams by default.',
+      mood: 'ready',
     };
   }
 
   return {
-    button: 'Prime portal',
-    status: 'Need coordinates',
-    reactor: 'Feed the machine a Hysteria profile and a live VK call link so the portal slime knows where to go.',
-    mood: 'portal mood: sleepy',
+    button: 'Connect',
+    status: 'Setup needed',
+    reactor: 'Import a profile and paste a live VK call link.',
+    mood: 'idle',
   };
 }
 
@@ -250,7 +250,7 @@ async function connect() {
     turnPort: el.turnPort.value.trim(),
     udp: el.turnMode.value === 'udp',
     noDtls: el.noDtls.checked,
-    streams: parseInt(el.streams.value, 10) || 1,
+    streams: parseInt(el.streams.value, 10) || 2,
     socksPort: parseInt(el.socksPort.value, 10) || 1080,
     httpPort: parseInt(el.httpPort.value, 10) || 8080,
     systemProxy: el.systemProxy.checked,
@@ -330,10 +330,19 @@ importModal.addEventListener('click', event => {
 });
 
 // === Connection Doctor ===
-function statusEmoji(status) {
-  if (status === 'pass') return '✅';
-  if (status === 'warn') return '⚠️';
-  return '❌';
+function statusLabel(status) {
+  if (status === 'pass') return 'Pass';
+  if (status === 'warn') return 'Warn';
+  return 'Fail';
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
 }
 
 let lastDoctorReport = null;
@@ -354,10 +363,11 @@ doctorBtn.addEventListener('click', async () => {
 
     doctorStatus.textContent = 'Platform: ' + (report.platform || 'unknown');
     const html = (report.checks || []).map(c => {
-      const hint = c.hint ? '<div class="doctor-hint">' + c.hint + '</div>' : '';
-      return '<div class="doctor-row doctor-row--' + c.status + '">' +
-        '<div class="doctor-row-head">' + statusEmoji(c.status) + ' <strong>' + c.name + '</strong></div>' +
-        '<div class="doctor-detail">' + c.detail + '</div>' +
+      const status = escapeHtml(c.status);
+      const hint = c.hint ? '<div class="doctor-hint">' + escapeHtml(c.hint) + '</div>' : '';
+      return '<div class="doctor-row doctor-row--' + status + '">' +
+        '<div class="doctor-row-head"><span class="doctor-icon"></span><strong>' + escapeHtml(c.name) + '</strong><span>' + statusLabel(c.status) + '</span></div>' +
+        '<div class="doctor-detail">' + escapeHtml(c.detail) + '</div>' +
         hint +
         '</div>';
     }).join('');
@@ -381,10 +391,7 @@ doctorCopy.addEventListener('click', async () => {
     await navigator.clipboard.writeText(text);
     doctorStatus.textContent = 'Sanitized report copied to clipboard';
   } catch (e) {
-    // Fallback: copy what we have, redacted client-side
-    const text = JSON.stringify(lastDoctorReport, null, 2);
-    try { await navigator.clipboard.writeText(text); } catch (_) {}
-    doctorStatus.textContent = 'Report copied (raw)';
+    doctorStatus.textContent = 'Could not copy sanitized report';
   }
 });
 

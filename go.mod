@@ -8,6 +8,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/pion/dtls/v3 v3.0.10
 	github.com/pion/logging v0.2.4
+	github.com/pion/stun/v3 v3.1.1
 	github.com/pion/turn/v5 v5.0.2
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.org/x/sys v0.40.0
@@ -31,7 +32,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.69 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/stun/v3 v3.1.1 // indirect
 	github.com/pion/transport/v4 v4.0.1 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect

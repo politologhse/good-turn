@@ -150,7 +150,7 @@ func (a *App) Connect(cfg ConnectConfig) error {
 		cfg.HTTPPort = 8080
 	}
 	if cfg.Streams <= 0 {
-		cfg.Streams = 1
+		cfg.Streams = 2
 	}
 	if cfg.SNI == "" {
 		cfg.SNI = "hy2"

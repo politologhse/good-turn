@@ -64,12 +64,13 @@ func TestSanitizeRedactsAddresses(t *testing.T) {
 		Checks: []CheckResult{
 			{Name: "Profile", Status: Pass, Detail: "Valid profile → 185.1.2.3:56000 (SNI: hy2)"},
 			{Name: "Peer Host", Status: Pass, Detail: "example.com → 185.1.2.3: DTLS handshake OK"},
+			{Name: "TURN Preflight", Status: Pass, Detail: "VK TURN 155.212.193.23:19302: STUN binding OK"},
 		},
 	}
 	s := r.Sanitize()
 	for _, c := range s.Checks {
-		if strings.Contains(c.Detail, "185.1.2.3:56000") {
-			t.Errorf("sanitize did not redact host:port: %q", c.Detail)
+		if strings.Contains(c.Detail, "185.1.2.3") || strings.Contains(c.Detail, "155.212.193.23") {
+			t.Errorf("sanitize did not redact address: %q", c.Detail)
 		}
 	}
 }
