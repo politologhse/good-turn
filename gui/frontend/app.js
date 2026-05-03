@@ -441,13 +441,35 @@ function initEvents() {
   });
 
   window.runtime.EventsOn('captcha-manual', url => {
-    log('Manual verification needed — opening browser...');
+    log('VK requires manual verification.');
+    log('Step 1: open this URL in your browser:');
+    log(url);
     try { window.open(url, '_blank'); } catch (_) {}
-    // Show URL in log so user can copy if browser didn't open
-    log('If browser did not open, go to: ' + url);
-    log('Complete the verification, then click Connect again.');
+    log('Step 2: complete the captcha in the browser.');
+    log('Step 3: click "I passed the captcha" below, then Connect.');
+    log('Do NOT spam Connect — VK escalates the rate limit. App will hold for 5 min unless you confirm.');
+    const row = document.getElementById('captchaConfirmRow');
+    if (row) row.style.display = '';
   });
 }
+
+// Wire captcha confirm button (defined here so it picks up the runtime check)
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('captchaConfirmBtn');
+  const row = document.getElementById('captchaConfirmRow');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    try {
+      if (window.go && window.go.main && window.go.main.App) {
+        await window.go.main.App.CaptchaCompleted();
+      }
+      log('Captcha cooldown cleared. You can press Connect now.');
+    } catch (e) {
+      log('CaptchaCompleted failed: ' + e);
+    }
+    if (row) row.style.display = 'none';
+  });
+});
 
 // === Metrics polling ===
 function formatBytes(bytes) {

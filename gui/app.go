@@ -53,9 +53,10 @@ type App struct {
 	state      AppState
 	message    string
 
-	relay    *Relay
-	hysteria *HysteriaManager
-	proxy    SystemProxy
+	relay     *Relay
+	hysteria  *HysteriaManager
+	proxy     SystemProxy
+	credCache *creds.CachedCreds
 
 	proxyEnabled bool
 	cancel       context.CancelFunc
@@ -177,13 +178,18 @@ func (a *App) connectAsync(cfg ConnectConfig) {
 		dnsdialer.WithStrategy(dnsdialer.Fallback{}),
 		dnsdialer.WithCache(100, 10*time.Hour, 10*time.Hour),
 	)
-	// Cache creds for 5 min, cooldown 30s between API calls, retry 3x on failure
-	getCreds := creds.NewCachedCreds(
+	// Cache creds for 5 min, cooldown 30s between API calls, retry 3x on failure.
+	// Captcha cooldown (default 5min in struct) prevents hammering VK after manual challenge.
+	credCache := creds.NewCachedCredsStruct(
 		withRetry(func(s string) (string, string, string, error) {
 			return getVkCreds(s, dialer, a.log)
 		}, 3, a.log),
 		5*time.Minute, 30*time.Second, a.log,
 	)
+	getCreds := credCache.Get
+	a.mu.Lock()
+	a.credCache = credCache
+	a.mu.Unlock()
 	if idx := strings.IndexAny(link, "/?#"); idx != -1 {
 		link = link[:idx]
 	}
@@ -338,8 +344,15 @@ func (a *App) RunDoctorSanitized(report doctor.Report) doctor.Report {
 }
 
 // CaptchaCompleted is called from frontend after user manually verified captcha.
+// Clears the captcha cooldown so the next Connect immediately tries VK again.
 func (a *App) CaptchaCompleted() {
-	a.log("Manual captcha verification acknowledged")
+	a.log("Manual captcha acknowledged — clearing cooldown")
+	a.mu.Lock()
+	cache := a.credCache
+	a.mu.Unlock()
+	if cache != nil {
+		cache.ClearCaptchaCooldown()
+	}
 }
 
 func (a *App) Disconnect() error {
